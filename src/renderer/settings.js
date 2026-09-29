@@ -167,7 +167,7 @@
   const stage = $('preview');
   const sctx = stage.getContext('2d');
   let preview = null;
-  const PREVIEW_CYCLE = ['walk', 'idle', 'wave', 'walk', 'sit', 'idle'];
+  const PREVIEW_CYCLE = ['walk', 'idle', 'wave', 'walk', 'sit', 'idle', 'sleep', 'idle'];
   let cycleIdx = 0;
 
   function fit(canvas) {

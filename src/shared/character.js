@@ -179,6 +179,8 @@
     use: [1.8, 3.2],
     bump: [0.55, 0.55],
     dizzy: [2.4, 3.4],
+    sleep: [7, 14], // 선 채로 꾸벅꾸벅
+    sitsleep: [8, 18], // 앉은 채로 꾸벅꾸벅
     seek: [15, 15],
     pickup: [0.9, 0.9],
     drop: [0.8, 0.8],
@@ -287,9 +289,10 @@
       }
       const q = Math.random();
       if (this.state === 'walk') return q < 0.75 ? 'idle' : q < 0.9 ? 'wave' : 'sit';
-      if (this.state === 'sit') return 'idle';
-      if (q < 0.62) return 'walk';
-      if (q < 0.78) return 'sit';
+      if (this.state === 'sit') return q < 0.4 ? 'sitsleep' : 'idle';
+      if (q < 0.6) return 'walk';
+      if (q < 0.74) return 'sit';
+      if (q < 0.8) return 'sleep';
       if (q < 0.9) return 'look';
       return 'wave';
     }
@@ -300,6 +303,10 @@
           return this.setState('dizzy', undefined, 0.3);
         case 'dizzy':
           return this.setState('idle', undefined, 0.8); // 천천히 일어난다
+        case 'sleep':
+          return this.setState('idle', undefined, 0.7); // 부스스 깬다
+        case 'sitsleep':
+          return this.setState('sit', undefined, 0.7); // 앉은 채로 깬다
         default: {
           const next = this.pickNext(world);
           const target = this.target;
@@ -502,7 +509,8 @@
       const t = this.t;
       const walking = st === 'walk' || st === 'seek';
       const onButt = st === 'bump' || st === 'dizzy';
-      const sitting = st === 'sit';
+      const sleeping = st === 'sleep' || st === 'sitsleep';
+      const sitting = st === 'sit' || st === 'sitsleep';
       const crouch = st === 'pickup' || st === 'drop';
       const dangling = st === 'drag';
       const airborne = st === 'air';
@@ -516,7 +524,8 @@
         tilt: 0,
         headTilt: 0,
         lid: 0,
-        eyeSpin: 0,
+        spiral: 0, // 헤롱헤롱: 소용돌이 눈
+        sleep: 0, // 잠든 눈
         frontArmBehind: 0,
         legsOnTop: 0,
         face: 0, // 0 = 옆얼굴, 1 = 정면. 앉을 때는 보는 사람 쪽으로 고개를 돌린다
@@ -538,6 +547,8 @@
         P.headTilt = -Math.sin(ph - 0.9) * 0.07;
       } else if (st === 'cheer') {
         bob = -Math.abs(Math.sin(this.stateT * 12)) * 3;
+      } else if (sleeping) {
+        bob = Math.sin(t * 1.4) * 1.2; // 느리고 깊은 숨
       } else if (!dangling && !airborne && !onButt) {
         bob = Math.sin(t * 2.2) * 0.8; // 숨쉬기
       }
@@ -563,9 +574,23 @@
         P.headX = Math.cos(w - 0.7) * 5.5;
         P.headDY = Math.sin(w - 0.7) * 1.8;
         P.headTilt = Math.sin(w - 1) * 0.22;
-        P.lid = 0.45;
-        P.eyeSpin = 1;
+        P.spiral = 1;
         P.fx = 'stars';
+      }
+      // 잠: 참고 사진처럼 고개가 앞으로 푹 숙여져 코가 아래를 향하고, 숨 쉴 때마다 꾸벅인다
+      if (sleeping) {
+        const nod = Math.sin(t * 1.4);
+        P.sleep = 1;
+        P.headX = 7;
+        P.headDY = 7 + nod * 1.2;
+        P.headTilt = 0.6 + nod * 0.05;
+        P.torsoX = 1.5;
+        if (st === 'sleep') {
+          P.tilt = 0.05;
+          P.bodyY += 5; // 무릎이 풀려 살짝 굽는다
+        } else {
+          P.face = 0.3;
+        }
       }
       if (st === 'bump') {
         P.lid = 1; // 쿵! 눈을 질끈
@@ -631,6 +656,7 @@
           // 드는 다리는 무릎이 앞으로 굽고, 딛는 다리는 곧게 편다
           ctrl = { x: (hip.x + ankle.x) / 2 + 1 + lift * 0.9, y: (hip.y + ankle.y) / 2 + lift * 0.3 };
           fa = lift > 0 ? 0.45 * (lift / 9) : 0;
+          if (st === 'sleep') ctrl.x += side > 0 ? 7 : 5; // 선 채로 졸 때 무릎이 앞으로 굽는다
         }
         // 모든 다리를 3차 곡선으로 통일해 두면 자세 사이를 부드럽게 섞을 수 있다
         if (!cubic) {
@@ -669,6 +695,11 @@
           // 놀라서 팔이 번쩍
           hand = { x: side * (R + 10), y: torsoY - 16 * (1 - bumpK * 0.5) };
           ctrl = { x: side * (R + 8), y: torsoY + 2 };
+        } else if (st === 'sleep') {
+          // 선 채로 잘 때는 팔이 힘없이 축 늘어진다
+          const sway = Math.sin(t * 1.4 + side) * 0.8;
+          hand = { x: side * R * 0.95 + sway, y: bodyY + R * 0.2 };
+          ctrl = { x: side * R * 1.2, y: torsoY + T * 1.2 };
         } else if (sitting) {
           // 두 팔을 공 양옆으로 편안히 늘어뜨려 손을 바닥에 내려놓는다
           const sway = Math.sin(t * 1.6 + side) * 0.6;
@@ -836,12 +867,35 @@
       ctx.beginPath();
       ctx.ellipse(ex, ey, erx, ery, 0, 0, Math.PI * 2);
       ctx.fill();
-      let lx = this.look.x * erx * 0.4;
-      let ly = this.look.y * ery * 0.35;
-      if (P.eyeSpin > 0.5) {
-        lx = Math.cos(this.t * 9) * erx * 0.45;
-        ly = Math.sin(this.t * 9) * ery * 0.45;
+      ctx.strokeStyle = '#141414';
+      ctx.lineCap = 'round';
+      if (P.spiral > 0.5) {
+        // 헤롱헤롱: 빙글빙글 도는 소용돌이 눈
+        const turns = 2.6;
+        const rot = -this.t * 8;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i <= 60; i++) {
+          const k = i / 60;
+          const a = k * turns * Math.PI * 2 + rot;
+          const x = ex + Math.cos(a) * erx * 0.82 * k;
+          const y = ey + Math.sin(a) * ery * 0.82 * k;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        return;
       }
+      if (P.sleep > 0.5) {
+        // 잠든 눈: 흰자 안에 감긴 눈꺼풀 선
+        ctx.lineWidth = 1.9;
+        ctx.beginPath();
+        ctx.arc(ex, ey - ery * 0.15, erx * 0.62, Math.PI * 0.12, Math.PI * 0.88);
+        ctx.stroke();
+        return;
+      }
+      const lx = this.look.x * erx * 0.4;
+      const ly = this.look.y * ery * 0.35;
       ctx.fillStyle = '#141414';
       ctx.beginPath();
       ctx.ellipse(ex + lx, ey + ly, H * 0.17, H * 0.22, 0, 0, Math.PI * 2);
