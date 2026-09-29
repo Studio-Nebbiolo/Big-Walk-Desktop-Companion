@@ -21,13 +21,14 @@ const DEFAULT_SETTINGS = {
   speed: 1,
   size: 1,
   greet: true,
+  items: true,
   paused: false,
   launchAtStartup: false,
   characters: [
-    { id: 'c1', name: '노랑이', legs: 'long', size: 1, colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
-    { id: 'c2', name: '파랑이', legs: 'long', size: 1.15, colors: { head: 'royal', body: 'rust', legs: 'amber' } },
-    { id: 'c3', name: '주황이', legs: 'short', size: 0.9, colors: { head: 'orange', body: 'royal', legs: 'lime' } },
-    { id: 'c4', name: '초록이', legs: 'long', size: 1.05, colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
+    { id: 'c1', name: '노랑이', colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
+    { id: 'c2', name: '파랑이', colors: { head: 'royal', body: 'rust', legs: 'amber' } },
+    { id: 'c3', name: '주황이', colors: { head: 'orange', body: 'royal', legs: 'lime' } },
+    { id: 'c4', name: '초록이', colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
   ],
 };
 
@@ -42,6 +43,7 @@ function sanitize(input) {
     speed: clampNum(s.speed, 0.3, 3, 1),
     size: clampNum(s.size, 0.6, 1.8, 1),
     greet: s.greet !== false,
+    items: s.items !== false,
     paused: !!s.paused,
     launchAtStartup: !!s.launchAtStartup,
     characters: chars.slice(0, 20).map((c, i) => {
@@ -57,8 +59,6 @@ function sanitize(input) {
       return {
         id,
         name: String(c.name ?? `친구 ${i + 1}`).slice(0, 20),
-        legs: c.legs === 'short' ? 'short' : 'long',
-        size: clampNum(c.size, 0.7, 1.4, 1),
         colors,
       };
     }),
@@ -225,7 +225,7 @@ function addRandomCharacter() {
     ...settings,
     characters: [
       ...settings.characters,
-      { id: `c${Date.now()}`, name: `친구 ${n}`, legs: Math.random() < 0.3 ? 'short' : 'long', size: 1, colors: randomColors() },
+      { id: `c${Date.now()}`, name: `친구 ${n}`, colors: randomColors() },
     ],
   });
 }

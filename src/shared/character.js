@@ -1,64 +1,91 @@
-// 캐릭터 한 명의 행동(상태 머신·물리)과 그리기.
+// 캐릭터 한 명의 행동(상태 머신 · 물리)과 그리기.
 // 컴패니언 창과 설정 창의 미리보기가 같이 쓴다.
+//
+// 모양: 머리 공 / 목 공(몸통 색) / 아래 큰 공(다리 색) + 국수 같은 팔다리.
+// 몸은 정면을 보고 머리(눈·코)만 가는 방향을 본다. 모든 친구가 같은 비율, 같은 크기다.
 (function (root) {
   const { colorHex } = root.Palette;
+  const Items = root.Items;
+  const tone = Items.tone;
 
   const GRAVITY = 1900;
-  const BASE_WALK_SPEED = 42;
+  const WALK_SPEED = 42;
+  const BUMP_SPEED = 700; // 이보다 세게 떨어지면 엉덩방아
 
-  // 기본 치수 (size = 1 기준 px)
-  const DIM = {
-    bodyR: 24,
-    torsoR: 13,
-    headR: 17,
-    limbW: 6,
-    handR: 5.5,
-    legLen: { long: 40, short: 22 },
-  };
+  const DIM = { bodyR: 24, torsoR: 13, headR: 17, legLen: 40, limbW: 6, handR: 5.5 };
+  const HEIGHT = DIM.legLen + DIM.bodyR * 1.8 + DIM.torsoR * 1.45 + DIM.headR * 1.78;
 
-  function rand(a, b) {
-    return a + Math.random() * (b - a);
-  }
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const ease = (k) => k * k * (3 - 2 * k);
 
-  function clamp(v, a, b) {
-    return Math.max(a, Math.min(b, v));
-  }
+  // ---------------------------------------------------------------------------
+  // 무광 점토 재질
+  // ---------------------------------------------------------------------------
 
-  function shade(hex, amt) {
-    const n = parseInt(hex.slice(1), 16);
-    let r = (n >> 16) & 255;
-    let g = (n >> 8) & 255;
-    let b = n & 255;
-    if (amt >= 0) {
-      r += (255 - r) * amt;
-      g += (255 - g) * amt;
-      b += (255 - b) * amt;
-    } else {
-      r *= 1 + amt;
-      g *= 1 + amt;
-      b *= 1 + amt;
-    }
-    return `rgb(${r | 0},${g | 0},${b | 0})`;
-  }
-
+  // 위에서 오는 부드러운 빛 + 아래쪽 반사광. 광택 하이라이트는 넣지 않는다.
   function ball(ctx, x, y, r, hex) {
-    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.45, r * 0.1, x, y, r * 1.05);
-    g.addColorStop(0, shade(hex, 0.22));
-    g.addColorStop(0.55, hex);
-    g.addColorStop(1, shade(hex, -0.28));
+    const g = ctx.createRadialGradient(x - r * 0.28, y - r * 0.42, r * 0.05, x - r * 0.08, y - r * 0.12, r * 1.12);
+    g.addColorStop(0, tone(hex, 0.1));
+    g.addColorStop(0.45, hex);
+    g.addColorStop(0.85, tone(hex, -0.14));
+    g.addColorStop(1, tone(hex, -0.24));
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
+    // 바닥에서 튀어 오른 은은한 반사광
+    const b = ctx.createRadialGradient(x, y + r * 1.25, r * 0.2, x, y + r * 1.25, r * 0.95);
+    b.addColorStop(0, 'rgba(255,236,210,0.16)');
+    b.addColorStop(1, 'rgba(255,236,210,0)');
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = b;
+    ctx.fillRect(x - r, y, r * 2, r);
+    ctx.restore();
   }
 
-  function noodle(ctx, from, ctrl, to, width, color) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineCap = 'round';
+  function blob(ctx, x, y, rx, ry, angle, hex) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.scale(1, ry / rx);
+    ball(ctx, 0, 0, rx, hex);
+    ctx.restore();
+  }
+
+  // 위에 얹힌 공이 아래 공에 드리우는 부드러운 접촉 그림자
+  function contactShadow(ctx, cx, cy, cr, x, y, r, alpha) {
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.quadraticCurveTo(ctrl.x, ctrl.y, to.x, to.y);
+    ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+    ctx.clip();
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(0,0,0,${alpha})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    ctx.restore();
+  }
+
+  // 원통처럼 보이도록 어두운 바탕 위에 밝은 심을 한 번 더 그린다.
+  function noodle(ctx, a, c, b, w, hex) {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const path = (dx, dy) => {
+      ctx.beginPath();
+      ctx.moveTo(a.x + dx, a.y + dy);
+      ctx.quadraticCurveTo(c.x + dx, c.y + dy, b.x + dx, b.y + dy);
+    };
+    path(0, 0);
+    ctx.strokeStyle = tone(hex, -0.2);
+    ctx.lineWidth = w;
+    ctx.stroke();
+    path(-w * 0.1, -w * 0.14);
+    ctx.strokeStyle = hex;
+    ctx.lineWidth = w * 0.62;
     ctx.stroke();
   }
 
@@ -66,20 +93,77 @@
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
-    ctx.fillStyle = hex;
+    const g = ctx.createLinearGradient(0, -4.6, 0, 4.6);
+    g.addColorStop(0, tone(hex, 0.08));
+    g.addColorStop(1, tone(hex, -0.22));
+    ctx.fillStyle = g;
     ctx.beginPath();
     ctx.ellipse(4, 0, 8.5, 4.6, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
+  function star(ctx, x, y, r, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.fillStyle = '#FFD84A';
+    ctx.strokeStyle = '#C8901E';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const rr = i % 2 ? r * 0.45 : r;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 발밑을 축으로 몸 전체를 기울였을 때, 월드 좌표 (x, y) 에 닿으려면 로컬에서 어디여야 하는지
+  function unrotate(x, y, a) {
+    const c = Math.cos(-a);
+    const s = Math.sin(-a);
+    return { x: x * c - y * s, y: x * s + y * c };
+  }
+
+  function lerpPose(a, b, k) {
+    if (typeof b === 'number') return typeof a === 'number' ? a + (b - a) * k : b;
+    if (Array.isArray(b)) return b.map((v, i) => lerpPose(a?.[i], v, k));
+    if (b && typeof b === 'object') {
+      const o = {};
+      for (const key in b) o[key] = lerpPose(a?.[key], b[key], k);
+      return o;
+    }
+    return b;
+  }
+
+  const DURATIONS = {
+    idle: [1.2, 3.5],
+    walk: [3, 9],
+    sit: [5, 12],
+    wave: [1.4, 2.2],
+    cheer: [1.1, 1.1],
+    look: [1, 2],
+    use: [1.8, 3.2],
+    bump: [0.55, 0.55],
+    dizzy: [2.4, 3.4],
+    seek: [15, 15],
+    pickup: [0.9, 0.9],
+    drop: [0.8, 0.8],
+  };
+
   class Character {
     constructor(cfg, opts = {}) {
       this.cfg = cfg;
+      this.globalSize = 1;
       this.x = opts.x ?? 100;
-      this.h = opts.h ?? 0; // 땅(작업표시줄 위)으로부터의 높이
+      this.h = opts.h ?? 0; // 땅(작업표시줄 윗면)으로부터의 높이
       this.vx = 0;
       this.vy = 0;
+      this.slide = 0;
       this.dir = Math.random() < 0.5 ? -1 : 1;
       this.phase = Math.random() * Math.PI * 2;
       this.t = Math.random() * 10;
@@ -88,85 +172,127 @@
       this.squash = 0;
       this.look = { x: 0, y: 0 };
       this.greetCooldown = rand(3, 8);
+      this.item = null;
+      this.target = null;
+      this.itemCooldown = 0;
+      this.lastPose = null;
       this.setState(opts.state || 'idle');
     }
 
     get scale() {
-      return (this.cfg.size || 1) * (this.globalSize || 1);
-    }
-
-    get legLen() {
-      return DIM.legLen[this.cfg.legs === 'short' ? 'short' : 'long'];
+      return this.globalSize || 1;
     }
 
     get height() {
-      return (this.legLen + DIM.bodyR * 1.75 + DIM.torsoR * 1.5 + DIM.headR * 1.9) * this.scale;
+      return HEIGHT * this.scale;
     }
 
-    setState(state, duration) {
+    setState(state, duration, blend = 0.22) {
       this.state = state;
       this.stateT = 0;
-      const d = {
-        idle: rand(1.2, 3.5),
-        walk: rand(3, 9),
-        sit: rand(5, 12),
-        wave: rand(1.4, 2.2),
-        cheer: 1.1,
-        look: rand(1, 2),
-      };
-      this.stateDur = duration ?? d[state] ?? 1;
+      const d = DURATIONS[state] || [1, 1];
+      this.stateDur = duration ?? rand(d[0], d[1]);
+      this.fromPose = this.lastPose;
+      this.blendT = 0;
+      this.blendDur = blend;
+      if (state !== 'seek' && state !== 'pickup') this.target = null;
     }
 
-    // --- 행동 -----------------------------------------------------------
-    pickNext() {
-      const r = Math.random();
-      if (this.state === 'walk') return r < 0.75 ? 'idle' : r < 0.9 ? 'wave' : 'sit';
-      if (this.state === 'sit') return 'idle';
-      if (r < 0.62) return 'walk';
-      if (r < 0.78) return 'sit';
-      if (r < 0.9) return 'look';
-      return 'wave';
-    }
-
+    // --- 사용자 조작 ------------------------------------------------------------
     poke() {
-      if (this.state === 'drag') return;
-      if (this.h <= 0.5) {
-        this.vy = rand(430, 520);
-        this.vx = 0;
-        this.state = 'air';
-        this.stateT = 0;
-        this.afterLand = 'cheer';
-      }
+      if (this.state === 'drag' || this.h > 0.5) return;
+      if (this.state === 'bump' || this.state === 'dizzy') return;
+      this.vy = rand(430, 520);
+      this.vx = 0;
+      this.setState('air', 99, 0.12);
+      this.afterLand = 'cheer';
     }
 
     grab() {
-      this.state = 'drag';
-      this.stateT = 0;
+      this.dropItem(true);
+      this.setState('drag', 999, 0.15);
       this.vx = 0;
       this.vy = 0;
     }
 
     release(vx, vy) {
-      this.state = 'air';
-      this.stateT = 0;
-      this.vx = clamp(vx, -900, 900);
-      this.vy = clamp(vy, -900, 900);
-      this.afterLand = 'idle';
+      this.setState('air', 99, 0.15);
+      this.vx = clamp(vx, -1100, 1100);
+      this.vy = clamp(vy, -1100, 1100);
+      this.afterLand = Math.hypot(vx, vy) > 500 ? 'bump' : 'idle';
+    }
+
+    dropItem(fling) {
+      const it = this.item;
+      if (!it) return;
+      this.item = null;
+      it.heldBy = null;
+      it.x = this.x + this.dir * DIM.bodyR * this.scale;
+      it.h = fling ? this.h + 50 * this.scale : 0;
+      it.vy = fling ? 120 : 0;
+      it.dir = this.dir;
+      it.touched = performance.now();
+      this.itemCooldown = this.t + rand(15, 35);
+    }
+
+    // --- 행동 -------------------------------------------------------------------
+    pickNext(world) {
+      if (world.paused) return 'idle';
+      const r = Math.random();
+      if (this.item) {
+        if (this.t > this.carryUntil) return 'drop';
+        if (this.state === 'walk') return r < 0.55 ? 'idle' : 'use';
+        return r < 0.6 ? 'walk' : r < 0.85 ? 'use' : 'look';
+      }
+      if (world.items && this.t > this.itemCooldown && r < 0.5) {
+        let best = null;
+        for (const it of world.items) {
+          if (it.heldBy || it.h > 0 || (it.alpha ?? 1) < 1) continue;
+          const d = Math.abs(it.x - this.x);
+          if (d < 600 && (!best || d < Math.abs(best.x - this.x))) best = it;
+        }
+        if (best) {
+          this.target = best;
+          return 'seek';
+        }
+      }
+      const q = Math.random();
+      if (this.state === 'walk') return q < 0.75 ? 'idle' : q < 0.9 ? 'wave' : 'sit';
+      if (this.state === 'sit') return 'idle';
+      if (q < 0.62) return 'walk';
+      if (q < 0.78) return 'sit';
+      if (q < 0.9) return 'look';
+      return 'wave';
+    }
+
+    onStateEnd(world) {
+      switch (this.state) {
+        case 'bump':
+          return this.setState('dizzy', undefined, 0.3);
+        case 'dizzy':
+          return this.setState('idle', undefined, 0.8); // 천천히 일어난다
+        default: {
+          const next = this.pickNext(world);
+          const target = this.target;
+          this.setState(next);
+          if (next === 'seek') this.target = target;
+        }
+      }
     }
 
     update(dt, world) {
       this.t += dt;
       this.stateT += dt;
+      this.blendT += dt;
       const speed = world.speed || 1;
 
-      // 눈 깜빡임
       this.blinkT -= dt;
       if (this.blinkT <= 0) {
         this.blink = 0.14;
         this.blinkT = rand(2, 6);
       }
       this.blink = Math.max(0, this.blink - dt);
-      this.squash = Math.max(0, this.squash - dt * 4);
+      this.squash = Math.max(0, this.squash - dt * 3);
       this.greetCooldown = Math.max(0, this.greetCooldown - dt);
 
       const s = this.scale;
@@ -181,13 +307,12 @@
 
       if (this.state === 'air' || this.h > 0) {
         if (this.state !== 'air') {
-          this.state = 'air';
+          this.setState('air', 99, 0.15);
           this.afterLand = 'idle';
         }
         this.vy -= GRAVITY * dt;
         this.h += this.vy * dt;
         this.x += this.vx * dt;
-        // 창 위로 날아가 잘리지 않도록 천장에 부딪힌다.
         const ceiling = world.height ? Math.max(0, world.height - this.height - 24 * s) : Infinity;
         if (this.h > ceiling) {
           this.h = ceiling;
@@ -202,25 +327,74 @@
         }
         if (this.h <= 0) {
           this.h = 0;
-          if (this.vy < -520) {
-            this.vy = -this.vy * 0.32;
-            this.vx *= 0.6;
+          const impact = -this.vy;
+          if (this.afterLand === 'bump' || impact > BUMP_SPEED) {
+            // 엉덩방아
+            this.vy = 0;
+            this.slide = this.vx * 0.6;
+            this.vx = 0;
             this.squash = 1;
+            this.setState('bump', undefined, 0.07);
+          } else if (impact > 520) {
+            this.vy = impact * 0.3;
+            this.vx *= 0.6;
+            this.squash = 0.8;
           } else {
             this.vy = 0;
             this.vx = 0;
-            this.squash = 0.7;
+            this.squash = 0.6;
             this.setState(this.afterLand || 'idle');
           }
         }
         return;
       }
 
-      if (world.paused && (this.state === 'walk' || this.state === 'sit')) this.setState('idle');
-      if (this.stateT >= this.stateDur) this.setState(world.paused ? 'idle' : this.pickNext());
+      if (this.state === 'bump') {
+        this.x = clamp(this.x + this.slide * dt, minX, maxX);
+        this.slide *= Math.exp(-6 * dt);
+      }
+
+      if (world.paused && ['walk', 'sit', 'seek'].includes(this.state)) this.setState('idle');
+
+      // 아이템을 주우러 가는 중
+      if (this.state === 'seek') {
+        const it = this.target;
+        if (!it || it.heldBy || it.h > 0 || !world.items?.includes(it)) {
+          this.setState('idle');
+        } else {
+          const reach = DIM.bodyR * 0.95 * s;
+          const side = it.x >= this.x ? 1 : -1;
+          const standX = clamp(it.x - side * reach, minX, maxX);
+          const dx = standX - this.x;
+          if (Math.abs(dx) < 2.5) {
+            this.x = standX;
+            this.dir = side;
+            this.setState('pickup');
+            this.target = it;
+          } else {
+            this.dir = Math.sign(dx);
+            const step = Math.min(Math.abs(dx), WALK_SPEED * s * speed * 1.15 * dt);
+            this.x += this.dir * step;
+            this.phase += dt * 7.5 * Math.sqrt(speed);
+          }
+        }
+      }
+
+      if (this.state === 'pickup' && !this.item && this.stateT > 0.45) {
+        const it = this.target;
+        if (it && !it.heldBy && world.items?.includes(it)) {
+          it.heldBy = this;
+          this.item = it;
+          this.carryUntil = this.t + rand(20, 50);
+        }
+        this.target = null;
+      }
+      if (this.state === 'drop' && this.item && this.stateT > 0.45) this.dropItem(false);
+
+      if (this.stateT >= this.stateDur) this.onStateEnd(world);
 
       if (this.state === 'walk') {
-        const v = BASE_WALK_SPEED * s * speed;
+        const v = WALK_SPEED * s * speed;
         this.x += this.dir * v * dt;
         this.phase += dt * 7.5 * Math.sqrt(speed);
         if (this.x <= minX) {
@@ -231,9 +405,9 @@
           this.dir = -1;
         }
         if (world.others && this.greetCooldown <= 0) this.tryGreet(world.others);
-      } else {
+      } else if (this.state !== 'seek') {
         this.x = clamp(this.x, minX, maxX);
-        // 걷다 멈추면 다리를 모은다
+        // 멈추면 다리를 모은다
         const target = Math.round(this.phase / Math.PI) * Math.PI;
         this.phase += (target - this.phase) * Math.min(1, dt * 8);
       }
@@ -247,23 +421,23 @@
 
     tryGreet(others) {
       for (const o of others) {
-        if (o === this || o.state === 'drag' || o.state === 'air' || o.h > 0) continue;
+        if (o === this || !['idle', 'walk', 'look'].includes(o.state) || o.h > 0) continue;
         const dx = o.x - this.x;
-        const reach = (DIM.bodyR * 2 + 26) * Math.max(this.scale, o.scale);
+        const reach = (DIM.bodyR * 2 + 26) * this.scale;
         if (Math.sign(dx) === this.dir && Math.abs(dx) < reach && Math.abs(dx) > reach * 0.55) {
           this.greetCooldown = rand(12, 25);
           o.greetCooldown = rand(12, 25);
           if (Math.random() < 0.55) {
-            this.setState('wave', rand(1.6, 2.4));
+            this.setState(this.item ? 'use' : 'wave', rand(1.6, 2.4));
             o.dir = -this.dir;
-            o.setState('wave', rand(1.6, 2.4));
+            o.setState(o.item ? 'use' : 'wave', rand(1.6, 2.4));
           }
           return;
         }
       }
     }
 
-    // --- 포즈 & 그리기 ----------------------------------------------------
+    // --- 히트 테스트 --------------------------------------------------------------
     bounds(groundY) {
       const s = this.scale;
       const w = (DIM.bodyR + 18) * s;
@@ -283,189 +457,361 @@
         return;
       }
       const b = this.bounds(groundY);
-      const cx = this.x;
-      const cy = b.y0 + DIM.headR * this.scale;
-      const dx = (px - cx) * this.dir;
-      const dy = py - cy;
+      const dx = (px - this.x) * this.dir;
+      const dy = py - (b.y0 + DIM.headR * this.scale);
       const len = Math.hypot(dx, dy) || 1;
       this.look.x = dx / len;
       this.look.y = dy / len;
     }
 
-    // 참고 이미지처럼 몸은 정면, 머리(눈·코)만 진행 방향을 본다.
-    // 색은 세 부분: 머리 / 몸통(목 공 + 팔 + 손) / 다리(아래 큰 공 + 다리 + 발)
-    draw(ctx, groundY) {
-      const s = this.scale;
-      const c = this.cfg.colors;
-      const col = {
-        head: colorHex(c.head),
-        body: colorHex(c.body),
-        legs: colorHex(c.legs),
-      };
-      const { bodyR, torsoR, headR, limbW, handR } = DIM;
-      const legLen = this.legLen;
+    // --- 포즈 ---------------------------------------------------------------------
+    // 로컬 좌표: +x 가 바라보는 쪽, y 는 아래가 +, 원점은 두 발 사이 바닥.
+    computePose() {
+      const { bodyR: R, torsoR: T, headR: H, legLen: L, handR } = DIM;
       const st = this.state;
-      const sitting = st === 'sit' && this.h <= 0;
+      const ph = this.phase;
+      const t = this.t;
+      const walking = st === 'walk' || st === 'seek';
+      const onButt = st === 'bump' || st === 'dizzy';
+      const sitting = st === 'sit';
+      const crouch = st === 'pickup' || st === 'drop';
       const dangling = st === 'drag';
       const airborne = st === 'air';
-      const walking = st === 'walk';
       const cheering = st === 'cheer' || (airborne && this.afterLand === 'cheer');
-      const ph = this.phase;
 
-      // 그림자
-      const shadowA = clamp(0.28 - this.h / 900, 0.05, 0.28);
-      ctx.fillStyle = `rgba(0,0,0,${shadowA})`;
-      ctx.beginPath();
-      ctx.ellipse(this.x, groundY - 1, (bodyR + 6) * s * (1 - Math.min(0.5, this.h / 600)), 4 * s, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const P = {
+        bodyY: 0,
+        torsoX: 0,
+        headX: 0,
+        headDY: 0,
+        tilt: 0,
+        headTilt: 0,
+        lid: 0,
+        eyeSpin: 0,
+        legs: [],
+        arms: [],
+        item: null,
+        legsFront: false,
+        fx: null,
+      };
 
-      ctx.save();
-      ctx.translate(this.x, groundY - this.h);
-      const sq = this.squash * 0.12;
-      ctx.scale(this.dir * s * (1 + sq), s * (1 - sq));
-
-      // --- 위치 계산 (로컬 좌표: +x 가 바라보는 쪽, y 는 아래가 +) ---
+      // --- 몸 높이 / 흔들림 ---
       let bob = 0;
-      let sway = 0;
       if (walking) {
-        bob = -Math.abs(Math.cos(ph)) * 3; // 한 발 디딜 때마다 통통
-        sway = Math.sin(ph) * 0.045; // 좌우로 뒤뚱
+        bob = -Math.abs(Math.cos(ph)) * 3;
+        P.tilt = Math.sin(ph) * 0.05 + 0.04;
+        // 머리와 목이 한 박자 늦게 따라오는 출렁임
+        P.torsoX = -Math.sin(ph - 0.6) * 1.2;
+        P.headX = -Math.sin(ph - 1.1) * 2.2;
+        P.headTilt = -Math.sin(ph - 0.9) * 0.07;
       } else if (st === 'cheer') {
         bob = -Math.abs(Math.sin(this.stateT * 12)) * 3;
-      } else if (!dangling && !airborne) {
-        bob = Math.sin(this.t * 2.2) * 0.8; // 숨쉬기
+      } else if (!dangling && !airborne && !onButt) {
+        bob = Math.sin(t * 2.2) * 0.8; // 숨쉬기
       }
 
-      const bodyY = sitting ? -bodyR * 0.95 : -legLen - bodyR * 0.8 + bob;
-      const torsoY = bodyY - bodyR - torsoR * 0.45;
-      const headY = torsoY - torsoR - headR * 0.78;
-      const hipY = bodyY + bodyR * (sitting ? 0.55 : 0.72);
+      if (sitting || onButt) P.bodyY = -R * 0.98;
+      else if (crouch) P.bodyY = -L * 0.72 - R * 0.8;
+      else P.bodyY = -L - R * 0.8 + bob;
 
-      const tilt =
-        sway +
-        (walking ? 0.04 : 0) +
-        (dangling ? Math.sin(this.t * 3) * 0.08 : 0) +
-        (airborne ? clamp(this.vx / 3000, -0.15, 0.15) * this.dir : 0);
+      if (crouch) P.tilt = 0.24;
+      if (dangling) P.tilt = Math.sin(t * 3) * 0.08;
+      if (airborne) P.tilt = clamp(this.vx / 3000, -0.15, 0.15) * this.dir;
+
+      // 헤롱헤롱: 머리가 늦게 따라오며 빙글빙글
+      if (st === 'dizzy') {
+        const w = t * 5;
+        P.tilt = Math.sin(w) * 0.07;
+        P.torsoX = Math.cos(w) * 2.5;
+        P.headX = Math.cos(w - 0.7) * 5.5;
+        P.headDY = Math.sin(w - 0.7) * 1.8;
+        P.headTilt = Math.sin(w - 1) * 0.22;
+        P.lid = 0.45;
+        P.eyeSpin = 1;
+        P.fx = 'stars';
+      }
+      if (st === 'bump') {
+        P.lid = 1; // 쿵! 눈을 질끈
+        P.torsoX = -2;
+        P.headX = -4;
+        P.headDY = 3;
+      }
+
+      const bodyY = P.bodyY;
+      const torsoY = bodyY - R - T * 0.45;
+      const headY = torsoY - T - H * 0.78 + P.headDY;
+      const hipY = bodyY + R * (sitting || onButt ? 0.55 : 0.72);
 
       // --- 다리 ---
-      const legs = [];
+      const bumpK = st === 'bump' ? ease(clamp(this.stateT / 0.5, 0, 1)) : 1;
       for (const side of [-1, 1]) {
-        const hip = { x: side * bodyR * 0.36, y: hipY };
+        const hip = { x: side * R * 0.36, y: hipY };
         let ankle;
         let ctrl;
-        let fAngle = 0;
+        let fa = 0;
         if (sitting) {
           // 책상다리: 두 다리가 앞에서 엇갈린다
-          hip.x = side * bodyR * 0.45;
-          ankle = { x: -side * (bodyR + 4), y: -6 };
-          ctrl = { x: side * bodyR * 0.25, y: 0 };
-          fAngle = side > 0 ? Math.PI : 0;
+          hip.x = side * R * 0.45;
+          ankle = { x: -side * (R + 4), y: -6 };
+          ctrl = { x: side * R * 0.25, y: 0 };
+          fa = side > 0 ? Math.PI : 0;
+          P.legsFront = true;
+        } else if (onButt) {
+          // 엉덩방아: 쿵 하고 다리가 번쩍 들렸다가 벌어진 채 내려온다
+          hip.x = side * R * 0.42;
+          const upA = { x: side * (R + 11), y: bodyY - R * 0.35 };
+          const downA = { x: side * (R + 16), y: -5 };
+          ankle = { x: upA.x + (downA.x - upA.x) * bumpK, y: upA.y + (downA.y - upA.y) * bumpK };
+          ctrl = { x: side * (R + 5), y: bodyY + R * 0.7 };
+          const up = side > 0 ? -1.5 : Math.PI + 1.5;
+          const down = side > 0 ? -0.8 : Math.PI + 0.8;
+          fa = up + (down - up) * bumpK;
+          P.legsFront = true;
+        } else if (crouch) {
+          ankle = { x: hip.x, y: -4.6 };
+          ctrl = { x: hip.x + 8, y: (hip.y + ankle.y) / 2 };
         } else if (dangling || airborne) {
-          const sw = dangling ? Math.sin(this.t * 5 + side * 1.3) * 5 : side * 2;
-          ankle = { x: hip.x + sw, y: hip.y + legLen - (airborne ? 6 : 1) };
-          ctrl = { x: hip.x + sw * 0.4 + side * 2, y: hip.y + legLen * 0.5 };
-          fAngle = 0.35;
+          const sw = dangling ? Math.sin(t * 5 + side * 1.3) * 5 : side * 2;
+          ankle = { x: hip.x + sw, y: hip.y + L - (airborne ? 6 : 1) };
+          ctrl = { x: hip.x + sw * 0.4 + side * 2, y: hip.y + L * 0.5 };
+          fa = 0.35;
         } else {
           // 걷기: 두 발이 번갈아 들렸다 앞으로 나간다
           const p = ph + (side > 0 ? 0 : Math.PI);
           const stride = walking ? 8 : 0;
           const lift = walking ? Math.max(0, Math.sin(p)) * 9 : 0;
-          ankle = { x: hip.x + Math.cos(p) * -stride, y: -4.6 - lift };
+          ankle = { x: hip.x - Math.cos(p) * stride, y: -4.6 - lift };
           ctrl = { x: (hip.x + ankle.x) / 2 + (lift > 0 ? 5 : 1), y: (hip.y + ankle.y) / 2 };
-          fAngle = lift > 0 ? -0.35 * (lift / 9) : 0;
+          fa = lift > 0 ? -0.35 * (lift / 9) : 0;
         }
-        legs.push({ side, hip, ankle, ctrl, fAngle });
+        P.legs.push({ hx: hip.x, hy: hip.y, cx: ctrl.x, cy: ctrl.y, ax: ankle.x, ay: ankle.y, fa });
       }
 
-      // --- 팔: 목 공 양옆에서 나와 바깥으로 휘어져 배 옆에 손이 온다 ---
-      const arms = [];
+      // --- 팔: 목 공 양옆에서 나와 바깥으로 휘어진다 ---
+      const it = this.item?.type;
+      const waveSide = it ? -1 : 1;
       for (const side of [-1, 1]) {
-        const sh = { x: side * torsoR * 0.7, y: torsoY + torsoR * 0.25 };
+        const sh = { x: side * T * 0.7, y: torsoY + T * 0.25 };
         let hand;
         let ctrl;
         if (dangling) {
-          hand = { x: side * (torsoR + 8) + Math.sin(this.t * 6 + side) * 3, y: headY - headR - 10 };
-          ctrl = { x: side * (torsoR + 16), y: torsoY - 4 };
+          hand = { x: side * (T + 8) + Math.sin(t * 6 + side) * 3, y: headY - H - 10 };
+          ctrl = { x: side * (T + 16), y: torsoY - 4 };
         } else if (cheering) {
-          hand = { x: side * bodyR * 0.95, y: headY - headR - 4 + Math.sin(this.t * 14 + side) * 3 };
-          ctrl = { x: side * bodyR * 1.35, y: torsoY + 2 };
-        } else if (st === 'wave' && side > 0) {
+          hand = { x: side * R * 0.95, y: headY - H - 4 + Math.sin(t * 14 + side) * 3 };
+          ctrl = { x: side * R * 1.35, y: torsoY + 2 };
+        } else if (st === 'wave' && side === waveSide) {
           const w = Math.sin(this.stateT * 11);
-          hand = { x: bodyR * 0.95 + w * 6, y: headY - headR - 8 + Math.abs(w) * 2 };
-          ctrl = { x: bodyR * 1.4, y: torsoY + 2 };
-        } else if (sitting) {
-          // 참고 사진처럼 양손을 바닥에 짚는다
-          hand = { x: side * (bodyR + 11), y: -handR };
-          ctrl = { x: side * (bodyR + 12), y: torsoY + torsoR * 1.2 };
+          hand = { x: side * (R * 0.95 + w * 6), y: headY - H - 8 + Math.abs(w) * 2 };
+          ctrl = { x: side * R * 1.4, y: torsoY + 2 };
+        } else if (st === 'bump') {
+          // 놀라서 팔이 번쩍
+          hand = { x: side * (R + 10), y: torsoY - 16 * (1 - bumpK * 0.5) };
+          ctrl = { x: side * (R + 8), y: torsoY + 2 };
+        } else if (sitting || st === 'dizzy') {
+          // 양손을 바닥에 짚는다 (헤롱거릴 땐 느슨하게 흔들린다)
+          const loose = st === 'dizzy' ? Math.sin(t * 5 + side) * 3 : 0;
+          hand = { x: side * (R + 11) + loose, y: -handR };
+          ctrl = { x: side * (R + 12), y: torsoY + T * 1.2 };
+        } else if (crouch && side > 0) {
+          // 바닥의 물건을 향해 손을 뻗는다
+          hand = unrotate(R * 0.95 + 2, -7, P.tilt);
+          ctrl = { x: R * 1.25, y: torsoY + T * 1.5 };
         } else if (airborne) {
-          hand = { x: side * (bodyR + 12), y: torsoY - 4 };
-          ctrl = { x: side * (bodyR + 6), y: torsoY + 10 };
+          hand = { x: side * (R + 12), y: torsoY - 4 };
+          ctrl = { x: side * (R + 6), y: torsoY + 10 };
         } else {
           const p = ph + (side > 0 ? Math.PI : 0);
           const swing = walking ? Math.cos(p) * -6 : 0;
-          const breathe = Math.sin(this.t * 1.8 + side) * 0.8;
-          hand = { x: side * bodyR * 1.0 + swing, y: bodyY - bodyR * 0.12 + breathe - (walking ? Math.abs(Math.cos(p)) * 2 : 0) };
-          ctrl = { x: side * bodyR * 1.18 + swing * 0.4, y: torsoY + torsoR * 1.1 };
+          const breathe = Math.sin(t * 1.8 + side) * 0.8;
+          hand = { x: side * R + swing, y: bodyY - R * 0.12 + breathe - (walking ? Math.abs(Math.cos(p)) * 2 : 0) };
+          ctrl = { x: side * R * 1.18 + swing * 0.4, y: torsoY + T * 1.1 };
         }
-        arms.push({ side, sh, hand, ctrl });
+        P.arms.push({ sx: sh.x, sy: sh.y, cx: ctrl.x, cy: ctrl.y, hx: hand.x, hy: hand.y });
       }
 
-      ctx.rotate(tilt);
+      // --- 들고 있는 물건 ---
+      if (it && !dangling) {
+        const front = P.arms[1];
+        const back = P.arms[0];
+        const using = st === 'use';
+        if (it === 'radio') {
+          // 두 손으로 배 앞에 든다. 쓸 때는 가슴까지 들어 올려 음악을 튼다.
+          const y = using ? torsoY + T * 0.9 : bodyY - R * 0.15;
+          Object.assign(front, { hx: 21, hy: y + 3, cx: R * 1.25, cy: torsoY + T * 1.2 });
+          Object.assign(back, { hx: -21, hy: y + 3, cx: -R * 1.25, cy: torsoY + T * 1.2 });
+          P.item = { x: 0, y, a: using ? Math.sin(t * 6) * 0.06 : 0 };
+          if (using) P.fx = 'notes';
+        } else if (it === 'megaphone' && using) {
+          // 두 손으로 확성기를 입에 대고 앞으로 외친다
+          const gx = H * 1.55;
+          const gy = headY + H * 0.95;
+          Object.assign(front, { hx: gx, hy: gy, cx: R * 1.2, cy: torsoY + T * 0.8 });
+          Object.assign(back, { hx: gx + 20, hy: gy - 9, cx: R * 0.7, cy: torsoY + T * 1.5 });
+          P.item = { x: gx, y: gy, a: -0.08 };
+          P.fx = 'shout';
+        } else if (it === 'walkie' && using) {
+          // 무전기를 얼굴 옆에 대고 말한다
+          const gx = H * 1.2;
+          const gy = headY + H * 0.75;
+          Object.assign(front, { hx: gx, hy: gy, cx: R * 1.25, cy: torsoY + T * 0.9 });
+          P.item = { x: gx, y: gy - 3, a: -0.15 };
+          P.fx = 'radio';
+        } else {
+          const a = it === 'megaphone' ? 1.25 : 0.05;
+          P.item = { x: front.hx, y: front.hy, a: crouch ? a + 0.2 : a };
+        }
+      }
+      return P;
+    }
 
-      const drawLeg = (l) => {
-        const hex = l.side < 0 ? shade(col.legs, -0.12) : col.legs;
-        // 앉으면 다리가 같은 색 공 앞을 지나가므로 윤곽선을 둘러 구분한다
-        if (sitting) noodle(ctx, l.hip, l.ctrl, l.ankle, limbW + 2.2, shade(col.legs, -0.35));
-        noodle(ctx, l.hip, l.ctrl, l.ankle, limbW, hex);
-        foot(ctx, l.ankle.x, l.ankle.y, l.fAngle, hex);
-      };
-      const drawArm = (a) => {
-        const hex = a.side < 0 ? shade(col.body, -0.06) : col.body;
-        noodle(ctx, a.sh, a.ctrl, a.hand, limbW, hex);
-        ball(ctx, a.hand.x, a.hand.y, handR, hex);
-      };
+    // --- 그리기 -------------------------------------------------------------------
+    draw(ctx, groundY) {
+      const s = this.scale;
+      const c = this.cfg.colors;
+      const col = { head: colorHex(c.head), body: colorHex(c.body), legs: colorHex(c.legs) };
+      const { bodyR: R, torsoR: T, headR: H, limbW, handR } = DIM;
 
-      // 서 있을 땐 다리가 큰 공 밑에서 나오고, 앉으면 공 앞으로 엇갈린다
-      if (!sitting) legs.forEach(drawLeg);
-      ball(ctx, 0, bodyY, bodyR, col.legs);
-      if (sitting) legs.forEach(drawLeg);
+      let P = this.computePose();
+      if (this.fromPose && this.blendT < this.blendDur) {
+        P = lerpPose(this.fromPose, P, ease(this.blendT / this.blendDur));
+      }
+      this.lastPose = P;
 
-      // 흔드는 팔은 머리 뒤로, 나머지는 몸 앞으로
-      const behind = arms.filter((a) => a.hand.y < torsoY - torsoR);
-      const front = arms.filter((a) => !behind.includes(a));
-      behind.forEach(drawArm);
-      ball(ctx, 0, torsoY, torsoR, col.body);
-      front.forEach(drawArm);
-
-      // 코 → 머리 → 눈
-      ctx.save();
-      ctx.translate(headR * 0.92, headY + headR * 0.12);
-      ctx.rotate(-0.12);
-      ctx.fillStyle = shade(col.head, -0.08);
+      // 그림자
+      const shadowA = clamp(0.28 - this.h / 900, 0.05, 0.28);
+      ctx.fillStyle = `rgba(0,0,0,${shadowA})`;
       ctx.beginPath();
-      ctx.ellipse(0, 0, headR * 0.55, headR * 0.3, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.x, groundY - 1, (R + 8) * s * (1 - Math.min(0.5, this.h / 600)), 4.5 * s, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
-      ball(ctx, 0, headY, headR, col.head);
 
-      const ex = headR * 0.28;
-      const ey = headY - headR * 0.14;
-      const er = headR * 0.42;
-      const open = this.blink > 0 ? 0.12 : 1;
+      ctx.save();
+      ctx.translate(this.x, groundY - this.h);
+      const sq = this.squash * 0.14;
+      ctx.scale(this.dir * s * (1 + sq), s * (1 - sq));
+      ctx.rotate(P.tilt);
+
+      const bodyY = P.bodyY;
+      const torsoY = bodyY - R - T * 0.45;
+      const headY = torsoY - T - H * 0.78 + P.headDY;
+      const tx = P.torsoX;
+      const hx = P.headX;
+
+      const drawLeg = (l, i) => {
+        const hex = i === 0 ? tone(col.legs, -0.1) : col.legs;
+        noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, limbW, hex);
+        foot(ctx, l.ax, l.ay, l.fa, hex);
+      };
+      const drawArm = (a, i) => {
+        const hex = i === 0 ? tone(col.body, -0.08) : col.body;
+        noodle(ctx, { x: a.sx + tx, y: a.sy }, { x: a.cx + tx * 0.5, y: a.cy }, { x: a.hx, y: a.hy }, limbW, hex);
+        ball(ctx, a.hx, a.hy, handR, hex);
+      };
+
+      // 머리 뒤로 올라간 팔은 먼저 그린다
+      const armsBehind = P.arms.map((a) => a.hy < torsoY - T && !P.item);
+      P.arms.forEach((a, i) => armsBehind[i] && drawArm(a, i));
+
+      if (!P.legsFront) P.legs.forEach(drawLeg);
+      ball(ctx, 0, bodyY, R, col.legs);
+      contactShadow(ctx, 0, bodyY, R, tx, torsoY + T * 0.7, T * 1.5, 0.28);
+      if (P.legsFront) P.legs.forEach(drawLeg);
+
+      ball(ctx, tx, torsoY, T, col.body);
+      contactShadow(ctx, tx, torsoY, T, hx, headY + H * 0.75, H * 1.1, 0.3);
+
+      // 머리: 코 → 머리 공 → 눈
+      ctx.save();
+      ctx.translate(hx, headY);
+      ctx.rotate(P.headTilt);
+      blob(ctx, H * 0.92, H * 0.12, H * 0.55, H * 0.31, -0.12, tone(col.head, -0.06));
+      ball(ctx, 0, 0, H, col.head);
+      this.drawEye(ctx, P, col.head);
+      ctx.restore();
+
+      if (P.item && this.item) Items.drawHeld(ctx, this.item.type, P.item.x, P.item.y, P.item.a);
+      P.arms.forEach((a, i) => !armsBehind[i] && drawArm(a, i));
+
+      this.drawEffects(ctx, P, hx, headY);
+      ctx.restore();
+    }
+
+    drawEye(ctx, P, headHex) {
+      const H = DIM.headR;
+      const ex = H * 0.28;
+      const ey = -H * 0.14;
+      const er = H * 0.42;
+      if (this.blink > 0 || P.lid > 0.9) {
+        // 감은 눈
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ex - er * 0.75, ey + 1);
+        ctx.quadraticCurveTo(ex, ey + er * 0.45, ex + er * 0.75, ey + 1);
+        ctx.stroke();
+        return;
+      }
       ctx.fillStyle = '#fbfbf6';
       ctx.beginPath();
-      ctx.ellipse(ex, ey, er, er * open, 0, 0, Math.PI * 2);
+      ctx.arc(ex, ey, er, 0, Math.PI * 2);
       ctx.fill();
-      if (open > 0.5) {
-        const lx = this.look.x * er * 0.35 + er * 0.08;
-        const ly = this.look.y * er * 0.3;
-        ctx.fillStyle = '#141414';
-        ctx.beginPath();
-        ctx.arc(ex + lx, ey + ly, er * 0.5, 0, Math.PI * 2);
-        ctx.fill();
+      let lx = this.look.x * er * 0.35 + er * 0.08;
+      let ly = this.look.y * er * 0.3;
+      if (P.eyeSpin > 0.5) {
+        lx = Math.cos(this.t * 9) * er * 0.4;
+        ly = Math.sin(this.t * 9) * er * 0.4;
       }
+      ctx.fillStyle = '#141414';
+      ctx.beginPath();
+      ctx.arc(ex + lx, ey + ly, er * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      if (P.lid > 0.05) {
+        // 처진 눈꺼풀
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(ex, ey, er + 0.5, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = tone(headHex, -0.04);
+        ctx.fillRect(ex - er - 1, ey - er - 1, er * 2 + 2, (er * 2 + 2) * P.lid);
+        ctx.restore();
+      }
+    }
 
-      ctx.restore();
+    drawEffects(ctx, P, hx, headY) {
+      const H = DIM.headR;
+      if (P.fx === 'stars') {
+        // 머리 위를 도는 별
+        const cy = headY - H - 7;
+        for (let i = 0; i < 3; i++) {
+          const a = this.t * 4 + (i * Math.PI * 2) / 3;
+          const depth = (Math.sin(a) + 1) / 2;
+          star(ctx, hx + Math.cos(a) * 17, cy + Math.sin(a) * 4.5, 3.2 + depth * 1.8, 0.6 + depth * 0.4);
+        }
+      } else if ((P.fx === 'shout' || P.fx === 'radio') && P.item) {
+        const x0 = P.fx === 'shout' ? P.item.x + 46 : P.item.x + 14;
+        const y0 = P.fx === 'shout' ? P.item.y - 16 : P.item.y - 30;
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 1.6;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+          const k = (this.t * 1.6 + i / 3) % 1;
+          ctx.globalAlpha = 1 - k;
+          ctx.beginPath();
+          ctx.arc(x0, y0, 4 + k * 12, -0.7, 0.7);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (P.fx === 'notes' && P.item) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px sans-serif';
+        for (let i = 0; i < 2; i++) {
+          const k = (this.t * 0.7 + i / 2) % 1;
+          ctx.globalAlpha = 1 - k;
+          ctx.fillText(i ? '♫' : '♪', 8 + Math.sin(k * 6 + i) * 6, P.item.y - 38 - k * 22);
+        }
+        ctx.globalAlpha = 1;
+      }
     }
   }
 

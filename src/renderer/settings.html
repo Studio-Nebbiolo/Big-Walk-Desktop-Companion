@@ -24,17 +24,6 @@
           <span>이름</span>
           <input id="char-name" type="text" maxlength="20" />
         </label>
-        <div class="field">
-          <span>다리</span>
-          <div class="seg" id="legs-seg">
-            <button data-legs="long">길게</button>
-            <button data-legs="short">짧게</button>
-          </div>
-        </div>
-        <label class="field">
-          <span>크기 <output id="char-size-out"></output></span>
-          <input id="char-size" type="range" min="0.7" max="1.4" step="0.05" />
-        </label>
       </div>
 
       <div class="tabs" id="part-tabs"></div>
@@ -61,6 +50,7 @@
       </div>
       <div class="row checks">
         <label><input id="greet" type="checkbox" /> 마주치면 서로 인사하기</label>
+        <label><input id="items" type="checkbox" /> 바닥에 소품 생기기 (무전기 · 확성기 · 라디오)</label>
         <label><input id="paused" type="checkbox" /> 제자리에 멈추기</label>
         <label><input id="startup" type="checkbox" /> 컴퓨터를 켤 때 같이 실행</label>
       </div>
@@ -68,6 +58,7 @@
   </main>
 
   <script src="../shared/palette.js"></script>
+  <script src="../shared/items.js"></script>
   <script src="../shared/character.js"></script>
   <script src="settings.js"></script>
 </body>

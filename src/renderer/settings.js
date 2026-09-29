@@ -65,9 +65,6 @@
     if (!c) return;
 
     if (document.activeElement !== $('char-name')) $('char-name').value = c.name;
-    for (const b of $('legs-seg').children) b.classList.toggle('on', b.dataset.legs === c.legs);
-    $('char-size').value = c.size;
-    $('char-size-out').textContent = `${Math.round(c.size * 100)}%`;
     $('remove-char').disabled = settings.characters.length <= 1;
 
     const tabs = $('part-tabs');
@@ -105,6 +102,7 @@
     $('size').value = settings.size;
     $('size-out').textContent = `${Math.round(settings.size * 100)}%`;
     $('greet').checked = settings.greet;
+    $('items').checked = settings.items;
     $('paused').checked = settings.paused;
     $('startup').checked = settings.launchAtStartup;
   }
@@ -130,11 +128,6 @@
     save();
     renderList();
   });
-  $('legs-seg').addEventListener('click', (e) => {
-    const legs = e.target.dataset?.legs;
-    if (legs) editChar((c) => (c.legs = legs));
-  });
-  $('char-size').addEventListener('input', (e) => editChar((c) => (c.size = +e.target.value)));
   $('randomize').addEventListener('click', () => editChar((c) => (c.colors = randomColors())));
   $('remove-char').addEventListener('click', () => {
     if (settings.characters.length <= 1) return;
@@ -149,8 +142,6 @@
     settings.characters.push({
       id,
       name: `친구 ${settings.characters.length + 1}`,
-      legs: 'long',
-      size: 1,
       colors: randomColors(),
     });
     selectedId = id;
@@ -168,6 +159,7 @@
   bindGlobal('speed', 'speed', (t) => +t.value);
   bindGlobal('size', 'size', (t) => +t.value);
   bindGlobal('greet', 'greet', (t) => t.checked);
+  bindGlobal('items', 'items', (t) => t.checked);
   bindGlobal('paused', 'paused', (t) => t.checked);
   bindGlobal('startup', 'launchAtStartup', (t) => t.checked);
 
@@ -208,7 +200,7 @@
       }
       preview.cfg = c;
       preview.globalSize = 1;
-      preview.globalSize = (ground - 34) / (preview.height / c.size) / 1.25;
+      preview.globalSize = (ground - 40) / preview.height;
       // 미리보기에서는 무대 가운데 부근을 왔다 갔다 하도록 좁은 세계를 준다.
       const half = Math.min(w / 2, 170);
       preview.x -= w / 2 - half;

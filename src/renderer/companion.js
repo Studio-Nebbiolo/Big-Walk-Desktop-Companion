@@ -9,6 +9,10 @@
   let W = 0;
   let H = 0;
   let paused = false;
+  const items = []; // 바닥에 생겨나는 소품들
+  let nextItemAt = performance.now() / 1000 + 20 + Math.random() * 20;
+  const ITEM_LIFETIME = 180; // 아무도 안 주우면 3분 뒤 사라진다
+  const MAX_FREE_ITEMS = 2;
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -27,6 +31,11 @@
     settings = next;
     paused = !!next.paused;
     const byId = new Map(chars.map((c) => [c.cfg.id, c]));
+    const keep = new Set(next.characters.map((c) => c.id));
+    for (const c of chars) if (!keep.has(c.cfg.id)) c.dropItem(false);
+    if (!next.items) {
+      for (let i = items.length - 1; i >= 0; i--) if (!items[i].heldBy) items.splice(i, 1);
+    }
     chars = next.characters.map((cfg, i) => {
       const existing = byId.get(cfg.id);
       if (existing) {
@@ -158,6 +167,48 @@
     if (c) api.showCharacterMenu(c.cfg.id);
   });
 
+  // --- 소품 ----------------------------------------------------------------
+  function updateItems(dt, now) {
+    const sec = now / 1000;
+    const free = items.filter((it) => !it.heldBy);
+    if (settings.items && sec > nextItemAt) {
+      nextItemAt = sec + 30 + Math.random() * 45;
+      if (free.length < MAX_FREE_ITEMS) {
+        const ids = Items.TYPE_IDS;
+        items.push({
+          type: ids[Math.floor(Math.random() * ids.length)],
+          x: 90 + Math.random() * Math.max(10, W - 180),
+          h: H * 0.5,
+          vy: 0,
+          dir: Math.random() < 0.5 ? -1 : 1,
+          heldBy: null,
+          touched: now,
+          alpha: 1,
+        });
+      }
+    }
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (it.heldBy) {
+        it.touched = now;
+        continue;
+      }
+      it.x = Math.max(60, Math.min(W - 60, it.x));
+      if (it.h > 0 || it.vy > 0) {
+        it.vy -= 1900 * dt;
+        it.h += it.vy * dt;
+        if (it.h <= 0) {
+          it.h = 0;
+          it.vy = it.vy < -300 ? -it.vy * 0.35 : 0;
+        }
+      }
+      if (now - it.touched > ITEM_LIFETIME * 1000) {
+        it.alpha -= dt;
+        if (it.alpha <= 0) items.splice(i, 1);
+      }
+    }
+  }
+
   // --- 루프 ----------------------------------------------------------------
   let last = performance.now();
   function frame(now) {
@@ -165,12 +216,14 @@
     last = now;
     ctx.clearRect(0, 0, W, H);
     if (settings) {
-      const world = { width: W, height: H, speed: settings.speed, paused, others: settings.greet ? chars : null };
+      updateItems(dt, now);
+      const world = { width: W, height: H, speed: settings.speed, paused, items, others: settings.greet ? chars : null };
       for (const c of chars) {
         c.update(dt, world);
         c.lookAt(mouse && (c === hover || c === drag?.char) ? mouse.x : null, mouse?.y, groundY());
       }
       // 뒤에 있는 캐릭터(드래그 중인 캐릭터는 맨 앞)
+      for (const it of items) if (!it.heldBy) Items.drawResting(ctx, it, groundY(), settings.size);
       const order = chars.slice().sort((a, b) => (a === drag?.char) - (b === drag?.char));
       for (const c of order) c.draw(ctx, groundY());
     }
