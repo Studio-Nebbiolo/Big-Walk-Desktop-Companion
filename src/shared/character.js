@@ -130,6 +130,19 @@
     return { x: x * c - y * s, y: x * s + y * c };
   }
 
+  // 앉았을 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
+  // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
+  function tidyLeg(side, bodyY) {
+    const R = DIM.bodyR;
+    const off = side > 0 ? 0 : -5;
+    const hip = { x: R * 0.5 + off, y: bodyY + R * 0.5 };
+    const knee = { x: R + 13 + off, y: bodyY + R * 0.2 };
+    const ankle = { x: R + 17 + off, y: -4.6 };
+    // 곡선이 무릎을 지나가도록 조절점을 잡는다
+    const ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
+    return { hip, ctrl, ankle };
+  }
+
   function lerpPose(a, b, k) {
     if (typeof b === 'number') return typeof a === 'number' ? a + (b - a) * k : b;
     if (Array.isArray(b)) return b.map((v, i) => lerpPose(a?.[i], v, k));
@@ -550,27 +563,23 @@
         let ankle;
         let ctrl;
         let fa = 0;
-        if (sitting) {
-          // 영상 속 앉은 자세: 큰 공을 바닥에 대고 무릎을 공 옆까지 세운 뒤
-          // 정강이를 접어 발을 앞바닥에 딛는다. 두 다리 높이를 살짝 다르게.
-          hip.x = side * R * 0.55;
-          hip.y = bodyY + R * 0.7;
-          const knee = { x: side * (R + (side > 0 ? 8 : 6)), y: bodyY + R * (side > 0 ? 0.05 : 0.25) };
-          ankle = { x: side * (R + 13), y: -4.6 };
-          // 곡선이 무릎을 지나가도록 조절점을 잡는다
-          ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
+        if (sitting || onButt) {
+          // 영상 속 앉은 자세: 큰 공을 바닥에 대고 두 다리를 가지런히 앞으로 모은다.
+          // 무릎은 살짝만 굽히고 두 발은 나란히 앞바닥에 딛는다 (벌리지 않는다).
+          const tidy = tidyLeg(side, bodyY);
+          hip.x = tidy.hip.x;
+          hip.y = tidy.hip.y;
+          ankle = tidy.ankle;
+          ctrl = tidy.ctrl;
           fa = 0;
-          P.legsFront = true;
-        } else if (onButt) {
-          // 엉덩방아: 쿵 하고 다리가 번쩍 들렸다가 벌어진 채 내려온다
-          hip.x = side * R * 0.42;
-          const upA = { x: side * (R + 11), y: bodyY - R * 0.35 };
-          const downA = { x: side * (R + 16), y: -5 };
-          ankle = { x: upA.x + (downA.x - upA.x) * bumpK, y: upA.y + (downA.y - upA.y) * bumpK };
-          ctrl = { x: side * (R + 5), y: bodyY + R * 0.7 };
-          const up = side > 0 ? -1.5 : Math.PI + 1.5;
-          const down = side > 0 ? -0.8 : Math.PI + 0.8;
-          fa = up + (down - up) * bumpK;
+          if (st === 'bump') {
+            // 엉덩방아: 쿵 하는 순간 두 다리가 앞으로 번쩍 들렸다가 가지런히 내려온다
+            const upA = { x: tidy.ankle.x - 2, y: bodyY - R * 0.4 };
+            const upC = { x: tidy.hip.x + 8, y: bodyY + R * 0.2 };
+            ankle = { x: upA.x + (ankle.x - upA.x) * bumpK, y: upA.y + (ankle.y - upA.y) * bumpK };
+            ctrl = { x: upC.x + (ctrl.x - upC.x) * bumpK, y: upC.y + (ctrl.y - upC.y) * bumpK };
+            fa = -1.3 * (1 - bumpK);
+          }
           P.legsFront = true;
         } else if (crouch) {
           ankle = { x: hip.x, y: -4.6 };
@@ -614,15 +623,12 @@
           // 놀라서 팔이 번쩍
           hand = { x: side * (R + 10), y: torsoY - 16 * (1 - bumpK * 0.5) };
           ctrl = { x: side * (R + 8), y: torsoY + 2 };
-        } else if (sitting) {
-          // 앞쪽 손은 무릎 위에 얹고, 뒤쪽 팔은 바닥까지 늘어뜨린다
-          hand = side > 0 ? { x: R + 1, y: bodyY - R * 0.1 - handR - 3 } : { x: -(R + 6), y: -handR };
-          ctrl = side > 0 ? { x: R * 1.15, y: torsoY + T * 0.6 } : { x: -(R + 9), y: torsoY + T * 1.4 };
-        } else if (st === 'dizzy') {
-          // 양손을 바닥에 짚고 느슨하게 흔들린다
-          const loose = st === 'dizzy' ? Math.sin(t * 5 + side) * 3 : 0;
-          hand = { x: side * (R + 11) + loose, y: -handR };
-          ctrl = { x: side * (R + 12), y: torsoY + T * 1.2 };
+        } else if (sitting || st === 'dizzy') {
+          // 두 팔을 공 옆으로 편안히 늘어뜨려 손을 바닥 가까이에 내려놓는다
+          // (헤롱거릴 땐 느슨하게 흔들린다)
+          const loose = st === 'dizzy' ? Math.sin(t * 5 + side) * 2.5 : Math.sin(t * 1.6 + side) * 0.6;
+          hand = { x: side * R * (side > 0 ? 0.8 : 0.95) + loose, y: -handR - 0.5 };
+          ctrl = { x: side * R * 1.1, y: torsoY + T * 1.4 };
         } else if (crouch && side > 0) {
           // 바닥의 물건을 향해 손을 뻗는다
           hand = unrotate(R * 0.95 + 2, -7, P.tilt);
