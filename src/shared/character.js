@@ -793,15 +793,13 @@
       ctx.save();
       ctx.translate(hx, headY);
       ctx.rotate(P.headTilt);
-      // 영상처럼 굵고 끝이 둥근 코. 고개를 앞으로 돌리면(face) 코가 얼굴 안쪽으로 들어오고
-      // 짧아 보이며, 머리 앞에 그려진다.
+      // 얼굴 구조: 코는 머리 옆면에서 가는 방향으로 길게 튀어나오고, 코 뿌리는
+      // 머리 윤곽 앞에 겹쳐 보인다. 눈은 코의 반대쪽 볼에 붙어 있다.
+      // 앉아서 보는 사람 쪽으로 고개를 돌리면(face) 코와 눈이 가운데로 조금 모인다.
       const f = P.face || 0;
-      const nose = () =>
-        blob(ctx, H * (0.98 - 0.5 * f), H * (0.1 + 0.2 * f), H * 0.6 * (1 - 0.3 * f), H * 0.4, -0.08 + 0.2 * f, tone(col.head, -0.05));
-      if (f <= 0.3) nose();
       ball(ctx, 0, 0, H, col.head);
       this.drawEye(ctx, P, col.head);
-      if (f > 0.3) nose();
+      blob(ctx, H * (1.02 - 0.4 * f), -H * 0.06, H * 0.62 * (1 - 0.3 * f), H * 0.4, -0.05, tone(col.head, -0.04));
       ctx.restore();
 
       if (P.item && this.item) Items.drawHeld(ctx, this.item.type, P.item.x, P.item.y, P.item.a);
@@ -814,9 +812,9 @@
 
     drawEye(ctx, P, headHex) {
       const H = DIM.headR;
-      const ex = H * (0.28 - 0.34 * (P.face || 0));
-      const ey = -H * 0.14;
-      const er = H * 0.42;
+      const ex = -H * 0.5 * (1 - 0.5 * (P.face || 0));
+      const ey = -H * 0.05;
+      const er = H * 0.36;
       if (this.blink > 0 || P.lid > 0.9) {
         // 감은 눈
         ctx.strokeStyle = '#1a1a1a';
@@ -828,11 +826,12 @@
         ctx.stroke();
         return;
       }
+      // 흰자는 살짝 세로로 긴 타원
       ctx.fillStyle = '#fbfbf6';
       ctx.beginPath();
-      ctx.arc(ex, ey, er, 0, Math.PI * 2);
+      ctx.ellipse(ex, ey, er * 0.82, er * 1.05, 0, 0, Math.PI * 2);
       ctx.fill();
-      let lx = this.look.x * er * 0.35 + er * 0.08;
+      let lx = this.look.x * er * 0.3;
       let ly = this.look.y * er * 0.3;
       if (P.eyeSpin > 0.5) {
         lx = Math.cos(this.t * 9) * er * 0.4;
@@ -840,13 +839,13 @@
       }
       ctx.fillStyle = '#141414';
       ctx.beginPath();
-      ctx.arc(ex + lx, ey + ly, er * 0.5, 0, Math.PI * 2);
+      ctx.arc(ex + lx, ey + ly, er * 0.42, 0, Math.PI * 2);
       ctx.fill();
       if (P.lid > 0.05) {
         // 처진 눈꺼풀
         ctx.save();
         ctx.beginPath();
-        ctx.arc(ex, ey, er + 0.5, 0, Math.PI * 2);
+        ctx.ellipse(ex, ey, er * 0.82 + 0.5, er * 1.05 + 0.5, 0, 0, Math.PI * 2);
         ctx.clip();
         ctx.fillStyle = tone(headHex, -0.04);
         ctx.fillRect(ex - er - 1, ey - er - 1, er * 2 + 2, (er * 2 + 2) * P.lid);
