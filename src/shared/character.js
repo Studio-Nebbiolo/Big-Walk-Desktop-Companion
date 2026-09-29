@@ -132,6 +132,24 @@
 
   // 앉았을 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
   // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
+  function sitLeg(side, bodyY) {
+    const R = DIM.bodyR;
+    let hip;
+    let knee;
+    let ankle;
+    if (side > 0) {
+      hip = { x: R * 0.5, y: bodyY + R * 0.62 };
+      knee = { x: R + 3, y: bodyY - R * 0.22 };
+      ankle = { x: R + 12, y: -4.6 };
+    } else {
+      hip = { x: R * 0.05, y: bodyY + R * 0.9 };
+      knee = { x: R * 0.45, y: -3.5 };
+      ankle = { x: R * 0.85, y: -4.6 };
+    }
+    const ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
+    return { hip, ctrl, ankle };
+  }
+
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
     const off = side > 0 ? 0 : -5;
@@ -502,6 +520,7 @@
         headTilt: 0,
         lid: 0,
         eyeSpin: 0,
+        frontArmBehind: 0,
         legs: [],
         arms: [],
         item: null,
@@ -524,7 +543,8 @@
         bob = Math.sin(t * 2.2) * 0.8; // 숨쉬기
       }
 
-      if (sitting || onButt) P.bodyY = -R * 0.98;
+      if (sitting) P.bodyY = -R - 4; // 접은 다리 위에 살짝 얹혀 있다
+      else if (onButt) P.bodyY = -R * 0.98;
       else if (crouch) P.bodyY = -L * 0.72 - R * 0.8;
       else P.bodyY = -L - R * 0.8 + bob;
 
@@ -563,8 +583,19 @@
         let ankle;
         let ctrl;
         let fa = 0;
-        if (sitting || onButt) {
-          // 영상 속 앉은 자세: 큰 공을 바닥에 대고 두 다리를 가지런히 앞으로 모은다.
+        if (sitting) {
+          // 참고 장면 그대로: 바라보는 쪽 다리(side 1)는 공 앞 가장자리를 따라
+          // 공 가운데 높이까지 아치를 그리며 올라갔다가 앞바닥에 발을 딛고,
+          // 반대쪽 다리(side -1)는 공 아래 앞쪽으로 낮게 접혀 들어간다.
+          const leg = sitLeg(side, bodyY);
+          hip.x = leg.hip.x;
+          hip.y = leg.hip.y;
+          ankle = leg.ankle;
+          ctrl = leg.ctrl;
+          fa = 0;
+          P.legsFront = true;
+        } else if (onButt) {
+          // 엉덩방아 / 헤롱헤롱: 두 다리를 가지런히 앞으로: 큰 공을 바닥에 대고 두 다리를 가지런히 앞으로 모은다.
           // 무릎은 살짝만 굽히고 두 발은 나란히 앞바닥에 딛는다 (벌리지 않는다).
           const tidy = tidyLeg(side, bodyY);
           hip.x = tidy.hip.x;
@@ -623,6 +654,20 @@
           // 놀라서 팔이 번쩍
           hand = { x: side * (R + 10), y: torsoY - 16 * (1 - bumpK * 0.5) };
           ctrl = { x: side * (R + 8), y: torsoY + 2 };
+        } else if (sitting) {
+          // 먼 쪽 팔은 공 뒤쪽을 따라 바닥까지 축 늘어지고,
+          // 바라보는 쪽 팔은 몸 뒤에 가려진다.
+          const sway = Math.sin(t * 1.6 + side) * 0.6;
+          if (side < 0) {
+            hand = { x: -R * 0.92 + sway, y: -handR - 1 };
+            ctrl = { x: -R * 1.22, y: torsoY + T * 0.9 };
+          } else {
+            sh.x = T * 0.15;
+            sh.y = torsoY + T * 0.8;
+            hand = { x: R * 0.4 + sway, y: bodyY + R * 0.2 };
+            ctrl = { x: R * 0.6, y: torsoY + T * 1.3 };
+          }
+          if (!it) P.frontArmBehind = 1;
         } else if (sitting || st === 'dizzy') {
           // 두 팔을 공 옆으로 편안히 늘어뜨려 손을 바닥 가까이에 내려놓는다
           // (헤롱거릴 땐 느슨하게 흔들린다)
@@ -727,7 +772,7 @@
       };
 
       // 머리 뒤로 올라간 팔은 먼저 그린다
-      const armsBehind = P.arms.map((a) => a.hy < torsoY - T && !P.item);
+      const armsBehind = P.arms.map((a, i) => (a.hy < torsoY - T && !P.item) || (i === 1 && P.frontArmBehind > 0.5));
       P.arms.forEach((a, i) => armsBehind[i] && drawArm(a, i));
 
       if (!P.legsFront) P.legs.forEach(drawLeg);
