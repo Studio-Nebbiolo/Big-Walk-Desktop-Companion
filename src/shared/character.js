@@ -651,7 +651,8 @@
       const it = this.item?.type;
       const waveSide = it ? -1 : 1;
       for (const side of [-1, 1]) {
-        const sh = { x: side * T * 0.7, y: torsoY + T * 0.25 };
+        // 팔은 목 공의 정반대 두 점(좌우 끝, 가운데 높이)에 붙어 있다
+        const sh = { x: side * T * 0.92, y: torsoY };
         let hand;
         let ctrl;
         if (dangling) {
@@ -814,38 +815,42 @@
       const H = DIM.headR;
       const ex = -H * 0.5 * (1 - 0.5 * (P.face || 0));
       const ey = -H * 0.05;
-      const er = H * 0.36;
+      // 레퍼런스에서 잰 비율: 흰자 세로 반지름 ≈ 머리 반지름의 0.52, 가로 ≈ 0.35,
+      // 눈동자 ≈ 0.22 (옆을 보고 있어 가로로 살짝 눌려 보인다)
+      const erx = H * 0.35;
+      const ery = H * 0.52;
+      const er = ery;
       if (this.blink > 0 || P.lid > 0.9) {
         // 감은 눈
         ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(ex - er * 0.75, ey + 1);
-        ctx.quadraticCurveTo(ex, ey + er * 0.45, ex + er * 0.75, ey + 1);
+        ctx.moveTo(ex - erx * 0.85, ey + 1);
+        ctx.quadraticCurveTo(ex, ey + erx * 0.6, ex + erx * 0.85, ey + 1);
         ctx.stroke();
         return;
       }
       // 흰자는 살짝 세로로 긴 타원
       ctx.fillStyle = '#fbfbf6';
       ctx.beginPath();
-      ctx.ellipse(ex, ey, er * 0.82, er * 1.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(ex, ey, erx, ery, 0, 0, Math.PI * 2);
       ctx.fill();
-      let lx = this.look.x * er * 0.3;
-      let ly = this.look.y * er * 0.3;
+      let lx = this.look.x * erx * 0.4;
+      let ly = this.look.y * ery * 0.35;
       if (P.eyeSpin > 0.5) {
-        lx = Math.cos(this.t * 9) * er * 0.4;
-        ly = Math.sin(this.t * 9) * er * 0.4;
+        lx = Math.cos(this.t * 9) * erx * 0.45;
+        ly = Math.sin(this.t * 9) * ery * 0.45;
       }
       ctx.fillStyle = '#141414';
       ctx.beginPath();
-      ctx.arc(ex + lx, ey + ly, er * 0.42, 0, Math.PI * 2);
+      ctx.ellipse(ex + lx, ey + ly, H * 0.17, H * 0.22, 0, 0, Math.PI * 2);
       ctx.fill();
       if (P.lid > 0.05) {
         // 처진 눈꺼풀
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(ex, ey, er * 0.82 + 0.5, er * 1.05 + 0.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(ex, ey, erx + 0.5, ery + 0.5, 0, 0, Math.PI * 2);
         ctx.clip();
         ctx.fillStyle = tone(headHex, -0.04);
         ctx.fillRect(ex - er - 1, ey - er - 1, er * 2 + 2, (er * 2 + 2) * P.lid);
