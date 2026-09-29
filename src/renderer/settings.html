@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>Magic School 친구들</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <h1>친구들</h1>
+    <ul id="char-list" class="char-list"></ul>
+    <button id="add-char" class="btn btn-primary">＋ 새 친구</button>
+  </aside>
+
+  <main class="editor">
+    <section class="stage-wrap">
+      <canvas id="preview" class="stage" title="클릭하면 점프해요"></canvas>
+    </section>
+
+    <section class="panel" id="char-panel">
+      <div class="row">
+        <label class="field grow">
+          <span>이름</span>
+          <input id="char-name" type="text" maxlength="20" />
+        </label>
+        <div class="field">
+          <span>다리</span>
+          <div class="seg" id="legs-seg">
+            <button data-legs="long">길게</button>
+            <button data-legs="short">짧게</button>
+          </div>
+        </div>
+        <label class="field">
+          <span>크기 <output id="char-size-out"></output></span>
+          <input id="char-size" type="range" min="0.7" max="1.4" step="0.05" />
+        </label>
+      </div>
+
+      <div class="tabs" id="part-tabs"></div>
+      <div class="swatches" id="swatches"></div>
+
+      <div class="row actions">
+        <button id="randomize" class="btn">🎲 랜덤 색상</button>
+        <span class="spacer"></span>
+        <button id="remove-char" class="btn btn-danger">작별 인사하기</button>
+      </div>
+    </section>
+
+    <section class="panel global">
+      <h2>모두에게 적용</h2>
+      <div class="row">
+        <label class="field grow">
+          <span>걷는 속도 <output id="speed-out"></output></span>
+          <input id="speed" type="range" min="0.3" max="3" step="0.1" />
+        </label>
+        <label class="field grow">
+          <span>전체 크기 <output id="size-out"></output></span>
+          <input id="size" type="range" min="0.6" max="1.8" step="0.05" />
+        </label>
+      </div>
+      <div class="row checks">
+        <label><input id="greet" type="checkbox" /> 마주치면 서로 인사하기</label>
+        <label><input id="paused" type="checkbox" /> 제자리에 멈추기</label>
+        <label><input id="startup" type="checkbox" /> 컴퓨터를 켤 때 같이 실행</label>
+      </div>
+    </section>
+  </main>
+
+  <script src="../shared/palette.js"></script>
+  <script src="../shared/character.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
