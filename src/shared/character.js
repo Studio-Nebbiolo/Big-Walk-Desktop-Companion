@@ -266,7 +266,7 @@
     // --- 포즈 & 그리기 ----------------------------------------------------
     bounds(groundY) {
       const s = this.scale;
-      const w = (DIM.bodyR + 14) * s;
+      const w = (DIM.bodyR + 18) * s;
       const bottom = groundY - this.h + 2;
       return { x0: this.x - w, x1: this.x + w, y0: bottom - this.height, y1: bottom };
     }
@@ -292,12 +292,13 @@
       this.look.y = dy / len;
     }
 
+    // 참고 이미지처럼 몸은 정면, 머리(눈·코)만 진행 방향을 본다.
+    // 색은 세 부분: 머리 / 몸통(목 공 + 팔 + 손) / 다리(아래 큰 공 + 다리 + 발)
     draw(ctx, groundY) {
       const s = this.scale;
       const c = this.cfg.colors;
       const col = {
         head: colorHex(c.head),
-        torso: colorHex(c.torso),
         body: colorHex(c.body),
         legs: colorHex(c.legs),
       };
@@ -308,13 +309,14 @@
       const dangling = st === 'drag';
       const airborne = st === 'air';
       const walking = st === 'walk';
+      const cheering = st === 'cheer' || (airborne && this.afterLand === 'cheer');
       const ph = this.phase;
 
       // 그림자
       const shadowA = clamp(0.28 - this.h / 900, 0.05, 0.28);
       ctx.fillStyle = `rgba(0,0,0,${shadowA})`;
       ctx.beginPath();
-      ctx.ellipse(this.x, groundY - 1, (bodyR + 4) * s * (1 - Math.min(0.5, this.h / 600)), 4 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.x, groundY - 1, (bodyR + 6) * s * (1 - Math.min(0.5, this.h / 600)), 4 * s, 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.save();
@@ -322,103 +324,118 @@
       const sq = this.squash * 0.12;
       ctx.scale(this.dir * s * (1 + sq), s * (1 - sq));
 
-      // --- 몸 위치 계산 (로컬 좌표: +x 가 앞, y 는 아래가 +) ---
+      // --- 위치 계산 (로컬 좌표: +x 가 바라보는 쪽, y 는 아래가 +) ---
       let bob = 0;
-      let lean = 0;
+      let sway = 0;
       if (walking) {
-        bob = -Math.abs(Math.sin(ph)) * 2.5;
-        lean = 0.05;
+        bob = -Math.abs(Math.cos(ph)) * 3; // 한 발 디딜 때마다 통통
+        sway = Math.sin(ph) * 0.045; // 좌우로 뒤뚱
       } else if (st === 'cheer') {
         bob = -Math.abs(Math.sin(this.stateT * 12)) * 3;
       } else if (!dangling && !airborne) {
         bob = Math.sin(this.t * 2.2) * 0.8; // 숨쉬기
       }
 
-      const bodyY = sitting ? -bodyR * 0.95 : -legLen - bodyR * 0.72 + bob;
+      const bodyY = sitting ? -bodyR * 0.95 : -legLen - bodyR * 0.8 + bob;
       const torsoY = bodyY - bodyR - torsoR * 0.45;
       const headY = torsoY - torsoR - headR * 0.78;
-      const hipY = bodyY + bodyR * 0.72;
+      const hipY = bodyY + bodyR * (sitting ? 0.55 : 0.72);
 
-      const tilt = lean + (dangling ? Math.sin(this.t * 3) * 0.08 : 0) + (airborne ? clamp(this.vx / 3000, -0.15, 0.15) * this.dir : 0);
+      const tilt =
+        sway +
+        (walking ? 0.04 : 0) +
+        (dangling ? Math.sin(this.t * 3) * 0.08 : 0) +
+        (airborne ? clamp(this.vx / 3000, -0.15, 0.15) * this.dir : 0);
 
       // --- 다리 ---
       const legs = [];
       for (const side of [-1, 1]) {
-        // side -1 = 뒤쪽 다리, 1 = 앞쪽 다리
-        const hip = { x: side * 5, y: hipY - 4 };
+        const hip = { x: side * bodyR * 0.36, y: hipY };
         let ankle;
         let ctrl;
         let fAngle = 0;
         if (sitting) {
-          ankle = { x: bodyR + 10 - (side < 0 ? 4 : 0), y: -5 - (side < 0 ? 3 : 0) };
-          hip.y = bodyY + bodyR * 0.6;
-          ctrl = { x: bodyR * 0.8, y: -2 };
-          fAngle = -1.35;
+          // 책상다리: 두 다리가 앞에서 엇갈린다
+          hip.x = side * bodyR * 0.45;
+          ankle = { x: -side * (bodyR + 4), y: -6 };
+          ctrl = { x: side * bodyR * 0.25, y: 0 };
+          fAngle = side > 0 ? Math.PI : 0;
         } else if (dangling || airborne) {
-          const sw = dangling ? Math.sin(this.t * 5 + side) * 5 : side * 3;
-          ankle = { x: hip.x + sw, y: hipY + legLen - 2 };
-          ctrl = { x: hip.x + sw * 0.3 + 3, y: hipY + legLen * 0.5 };
-          fAngle = 0.45;
+          const sw = dangling ? Math.sin(this.t * 5 + side * 1.3) * 5 : side * 2;
+          ankle = { x: hip.x + sw, y: hip.y + legLen - (airborne ? 6 : 1) };
+          ctrl = { x: hip.x + sw * 0.4 + side * 2, y: hip.y + legLen * 0.5 };
+          fAngle = 0.35;
         } else {
+          // 걷기: 두 발이 번갈아 들렸다 앞으로 나간다
           const p = ph + (side > 0 ? 0 : Math.PI);
-          const stride = walking ? 10 : 0;
-          const lift = walking ? Math.max(0, Math.cos(p)) * 7 : 0;
-          ankle = { x: hip.x + Math.sin(p) * stride, y: -4.6 - lift };
-          ctrl = { x: (hip.x + ankle.x) / 2 + 5, y: (hip.y + ankle.y) / 2 };
-          fAngle = walking ? Math.sin(p) * -0.25 * (lift > 0 ? 1 : 0) : 0;
+          const stride = walking ? 8 : 0;
+          const lift = walking ? Math.max(0, Math.sin(p)) * 9 : 0;
+          ankle = { x: hip.x + Math.cos(p) * -stride, y: -4.6 - lift };
+          ctrl = { x: (hip.x + ankle.x) / 2 + (lift > 0 ? 5 : 1), y: (hip.y + ankle.y) / 2 };
+          fAngle = lift > 0 ? -0.35 * (lift / 9) : 0;
         }
         legs.push({ side, hip, ankle, ctrl, fAngle });
       }
 
-      // --- 팔 ---
+      // --- 팔: 목 공 양옆에서 나와 바깥으로 휘어져 배 옆에 손이 온다 ---
       const arms = [];
       for (const side of [-1, 1]) {
-        const sh = { x: side * 3, y: torsoY + 3 };
+        const sh = { x: side * torsoR * 0.7, y: torsoY + torsoR * 0.25 };
         let hand;
         let ctrl;
         if (dangling) {
-          hand = { x: side * 9 + Math.sin(this.t * 6 + side) * 3, y: headY - headR - 12 };
-          ctrl = { x: side * 16, y: torsoY - 8 };
-        } else if (st === 'cheer' || (airborne && this.afterLand === 'cheer')) {
-          hand = { x: side * 14 + 4, y: headY - headR - 6 + Math.sin(this.t * 14) * 3 };
-          ctrl = { x: side * 22, y: torsoY - 4 };
+          hand = { x: side * (torsoR + 8) + Math.sin(this.t * 6 + side) * 3, y: headY - headR - 10 };
+          ctrl = { x: side * (torsoR + 16), y: torsoY - 4 };
+        } else if (cheering) {
+          hand = { x: side * bodyR * 0.95, y: headY - headR - 4 + Math.sin(this.t * 14 + side) * 3 };
+          ctrl = { x: side * bodyR * 1.35, y: torsoY + 2 };
         } else if (st === 'wave' && side > 0) {
-          const w = Math.sin(this.stateT * 11) * 7;
-          hand = { x: 14 + w, y: headY - headR - 10 };
-          ctrl = { x: torsoR + 18, y: torsoY - 8 };
+          const w = Math.sin(this.stateT * 11);
+          hand = { x: bodyR * 0.95 + w * 6, y: headY - headR - 8 + Math.abs(w) * 2 };
+          ctrl = { x: bodyR * 1.4, y: torsoY + 2 };
         } else if (sitting) {
-          hand = { x: bodyR + 6 - (side < 0 ? 5 : 0), y: -14 - (side < 0 ? 3 : 0) };
-          ctrl = { x: bodyR * 0.9, y: torsoY + 4 };
+          // 참고 사진처럼 양손을 바닥에 짚는다
+          hand = { x: side * (bodyR + 11), y: -handR };
+          ctrl = { x: side * (bodyR + 12), y: torsoY + torsoR * 1.2 };
         } else if (airborne) {
-          hand = { x: side * 20, y: torsoY - 2 };
-          ctrl = { x: side * 22, y: torsoY + 12 };
+          hand = { x: side * (bodyR + 12), y: torsoY - 4 };
+          ctrl = { x: side * (bodyR + 6), y: torsoY + 10 };
         } else {
-          const sw = walking ? Math.sin(ph + (side > 0 ? Math.PI : 0)) * 9 : Math.sin(this.t * 1.8 + side) * 1.2;
-          hand = { x: side * bodyR * 0.3 + sw, y: bodyY + 6 };
-          ctrl = { x: side * (bodyR + 10) + sw * 0.5, y: torsoY + 10 };
+          const p = ph + (side > 0 ? Math.PI : 0);
+          const swing = walking ? Math.cos(p) * -6 : 0;
+          const breathe = Math.sin(this.t * 1.8 + side) * 0.8;
+          hand = { x: side * bodyR * 1.0 + swing, y: bodyY - bodyR * 0.12 + breathe - (walking ? Math.abs(Math.cos(p)) * 2 : 0) };
+          ctrl = { x: side * bodyR * 1.18 + swing * 0.4, y: torsoY + torsoR * 1.1 };
         }
         arms.push({ side, sh, hand, ctrl });
       }
 
       ctx.rotate(tilt);
 
-      const backLimb = (hex) => shade(hex, -0.22);
-
-      // 뒤쪽 팔
-      {
-        const a = arms[0];
-        noodle(ctx, a.sh, a.ctrl, a.hand, limbW, backLimb(col.torso));
-        ball(ctx, a.hand.x, a.hand.y, handR, shade(col.torso, -0.22));
-      }
-      // 다리 (뒤 → 앞)
-      for (const l of legs) {
-        const hex = l.side < 0 ? backLimb(col.legs) : col.legs;
+      const drawLeg = (l) => {
+        const hex = l.side < 0 ? shade(col.legs, -0.12) : col.legs;
+        // 앉으면 다리가 같은 색 공 앞을 지나가므로 윤곽선을 둘러 구분한다
+        if (sitting) noodle(ctx, l.hip, l.ctrl, l.ankle, limbW + 2.2, shade(col.legs, -0.35));
         noodle(ctx, l.hip, l.ctrl, l.ankle, limbW, hex);
         foot(ctx, l.ankle.x, l.ankle.y, l.fAngle, hex);
-      }
-      // 몸통, 목
-      ball(ctx, 0, bodyY, bodyR, col.body);
-      ball(ctx, 0, torsoY, torsoR, col.torso);
+      };
+      const drawArm = (a) => {
+        const hex = a.side < 0 ? shade(col.body, -0.06) : col.body;
+        noodle(ctx, a.sh, a.ctrl, a.hand, limbW, hex);
+        ball(ctx, a.hand.x, a.hand.y, handR, hex);
+      };
+
+      // 서 있을 땐 다리가 큰 공 밑에서 나오고, 앉으면 공 앞으로 엇갈린다
+      if (!sitting) legs.forEach(drawLeg);
+      ball(ctx, 0, bodyY, bodyR, col.legs);
+      if (sitting) legs.forEach(drawLeg);
+
+      // 흔드는 팔은 머리 뒤로, 나머지는 몸 앞으로
+      const behind = arms.filter((a) => a.hand.y < torsoY - torsoR);
+      const front = arms.filter((a) => !behind.includes(a));
+      behind.forEach(drawArm);
+      ball(ctx, 0, torsoY, torsoR, col.body);
+      front.forEach(drawArm);
 
       // 코 → 머리 → 눈
       ctx.save();
@@ -446,13 +463,6 @@
         ctx.beginPath();
         ctx.arc(ex + lx, ey + ly, er * 0.5, 0, Math.PI * 2);
         ctx.fill();
-      }
-
-      // 앞쪽 팔
-      {
-        const a = arms[1];
-        noodle(ctx, a.sh, a.ctrl, a.hand, limbW, col.torso);
-        ball(ctx, a.hand.x, a.hand.y, handR, col.torso);
       }
 
       ctx.restore();

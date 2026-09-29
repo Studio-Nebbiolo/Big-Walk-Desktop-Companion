@@ -24,10 +24,10 @@ const DEFAULT_SETTINGS = {
   paused: false,
   launchAtStartup: false,
   characters: [
-    { id: 'c1', name: '노랑이', legs: 'long', size: 1, colors: { head: 'amber', torso: 'gray', body: 'crimson', legs: 'crimson' } },
-    { id: 'c2', name: '파랑이', legs: 'long', size: 1.15, colors: { head: 'royal', torso: 'rust', body: 'amber', legs: 'amber' } },
-    { id: 'c3', name: '주황이', legs: 'short', size: 0.9, colors: { head: 'orange', torso: 'royal', body: 'lime', legs: 'lime' } },
-    { id: 'c4', name: '초록이', legs: 'long', size: 1.05, colors: { head: 'green', torso: 'orange', body: 'charcoal', legs: 'charcoal' } },
+    { id: 'c1', name: '노랑이', legs: 'long', size: 1, colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
+    { id: 'c2', name: '파랑이', legs: 'long', size: 1.15, colors: { head: 'royal', body: 'rust', legs: 'amber' } },
+    { id: 'c3', name: '주황이', legs: 'short', size: 0.9, colors: { head: 'orange', body: 'royal', legs: 'lime' } },
+    { id: 'c4', name: '초록이', legs: 'long', size: 1.05, colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
   ],
 };
 
@@ -49,8 +49,11 @@ function sanitize(input) {
       while (seen.has(id)) id += 'x';
       seen.add(id);
       const fallback = randomColors();
+      let src = c.colors || {};
+      // 예전 4부위 설정(head/torso/body/legs)을 3부위로 옮긴다.
+      if (src.torso) src = { head: src.head, body: src.torso, legs: src.body };
       const colors = {};
-      for (const p of PARTS) colors[p.id] = BY_ID[c.colors?.[p.id]] ? c.colors[p.id] : fallback[p.id];
+      for (const p of PARTS) colors[p.id] = BY_ID[src[p.id]] ? src[p.id] : fallback[p.id];
       return {
         id,
         name: String(c.name ?? `친구 ${i + 1}`).slice(0, 20),

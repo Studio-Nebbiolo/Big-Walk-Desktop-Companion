@@ -30,9 +30,9 @@
 
   const BY_ID = Object.fromEntries(PALETTE.map((c) => [c.id, c]));
 
+  // 몸통 = 목 공 + 팔 + 손, 다리 = 아래 큰 공 + 다리 + 발
   const PARTS = [
     { id: 'head', name: '머리' },
-    { id: 'torso', name: '목 · 팔' },
     { id: 'body', name: '몸통' },
     { id: 'legs', name: '다리' },
   ];
@@ -46,8 +46,8 @@
     const colors = {};
     for (const p of PARTS) colors[p.id] = pick();
     // 인접한 부위가 같은 색이면 구분이 안 되니 다시 뽑는다.
-    while (colors.torso === colors.head) colors.torso = pick();
-    while (colors.body === colors.torso) colors.body = pick();
+    while (colors.body === colors.head) colors.body = pick();
+    while (colors.legs === colors.body) colors.legs = pick();
     return colors;
   }
 
