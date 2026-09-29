@@ -72,13 +72,15 @@
   }
 
   // 원통처럼 보이도록 어두운 바탕 위에 밝은 심을 한 번 더 그린다.
-  function noodle(ctx, a, c, b, w, hex) {
+  // c2 를 주면 3차 곡선(두 조절점), 아니면 2차 곡선.
+  function noodle(ctx, a, c, b, w, hex, c2) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const path = (dx, dy) => {
       ctx.beginPath();
       ctx.moveTo(a.x + dx, a.y + dy);
-      ctx.quadraticCurveTo(c.x + dx, c.y + dy, b.x + dx, b.y + dy);
+      if (c2) ctx.bezierCurveTo(c.x + dx, c.y + dy, c2.x + dx, c2.y + dy, b.x + dx, b.y + dy);
+      else ctx.quadraticCurveTo(c.x + dx, c.y + dy, b.x + dx, b.y + dy);
     };
     path(0, 0);
     ctx.strokeStyle = tone(hex, -0.2);
@@ -132,22 +134,17 @@
 
   // 앉았을 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
   // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
+  // 앉았을 때의 다리: 두 다리가 똑같은 아치 모양으로 나란히 선다.
+  // 공 아래쪽에서 나와 앞으로 솟았다가, 둥글게 넘어가 발까지 거의 수직으로 내려온다.
+  // (사용자가 그려준 그림: 두 개의 ∩ 가 조금 겹쳐 나란히)
   function sitLeg(side, bodyY) {
     const R = DIM.bodyR;
-    let hip;
-    let knee;
-    let ankle;
-    if (side > 0) {
-      hip = { x: R * 0.5, y: bodyY + R * 0.62 };
-      knee = { x: R + 3, y: bodyY - R * 0.22 };
-      ankle = { x: R + 12, y: -4.6 };
-    } else {
-      hip = { x: R * 0.05, y: bodyY + R * 0.9 };
-      knee = { x: R * 0.45, y: -3.5 };
-      ankle = { x: R * 0.85, y: -4.6 };
-    }
-    const ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
-    return { hip, ctrl, ankle };
+    const off = side > 0 ? 12 : 0; // 앞쪽 다리를 한 칸 앞으로
+    const hip = { x: R * 0.55 + off, y: bodyY + R * 0.5 };
+    const ankle = { x: R * 0.55 + off + 21, y: -4.6 };
+    const c1 = { x: hip.x + 3, y: hip.y - R * 1.15 };
+    const c2 = { x: ankle.x + 1, y: ankle.y - R * 1.75 };
+    return { hip, c1, c2, ankle };
   }
 
   function tidyLeg(side, bodyY) {
@@ -521,6 +518,8 @@
         lid: 0,
         eyeSpin: 0,
         frontArmBehind: 0,
+        legsOnTop: 0,
+        face: 0, // 0 = 옆얼굴, 1 = 정면. 앉을 때는 보는 사람 쪽으로 고개를 돌린다
         legs: [],
         arms: [],
         item: null,
@@ -543,7 +542,11 @@
         bob = Math.sin(t * 2.2) * 0.8; // 숨쉬기
       }
 
-      if (sitting) P.bodyY = -R - 4; // 접은 다리 위에 살짝 얹혀 있다
+      if (sitting) {
+        P.bodyY = -R - 2;
+        P.face = 0.65;
+        P.legsOnTop = 1; // 다리 아치가 팔보다 앞에 보인다
+      }
       else if (onButt) P.bodyY = -R * 0.98;
       else if (crouch) P.bodyY = -L * 0.72 - R * 0.8;
       else P.bodyY = -L - R * 0.8 + bob;
@@ -583,15 +586,14 @@
         let ankle;
         let ctrl;
         let fa = 0;
+        let cubic = null;
         if (sitting) {
-          // 참고 장면 그대로: 바라보는 쪽 다리(side 1)는 공 앞 가장자리를 따라
-          // 공 가운데 높이까지 아치를 그리며 올라갔다가 앞바닥에 발을 딛고,
-          // 반대쪽 다리(side -1)는 공 아래 앞쪽으로 낮게 접혀 들어간다.
+          // 두 다리가 나란히 같은 아치를 그린다
           const leg = sitLeg(side, bodyY);
           hip.x = leg.hip.x;
           hip.y = leg.hip.y;
           ankle = leg.ankle;
-          ctrl = leg.ctrl;
+          cubic = [leg.c1, leg.c2];
           fa = 0;
           P.legsFront = true;
         } else if (onButt) {
@@ -630,7 +632,19 @@
           ctrl = { x: (hip.x + ankle.x) / 2 + 1 + lift * 0.9, y: (hip.y + ankle.y) / 2 + lift * 0.3 };
           fa = lift > 0 ? 0.45 * (lift / 9) : 0;
         }
-        P.legs.push({ hx: hip.x, hy: hip.y, cx: ctrl.x, cy: ctrl.y, ax: ankle.x, ay: ankle.y, fa });
+        // 모든 다리를 3차 곡선으로 통일해 두면 자세 사이를 부드럽게 섞을 수 있다
+        if (!cubic) {
+          cubic = [
+            { x: hip.x + ((ctrl.x - hip.x) * 2) / 3, y: hip.y + ((ctrl.y - hip.y) * 2) / 3 },
+            { x: ankle.x + ((ctrl.x - ankle.x) * 2) / 3, y: ankle.y + ((ctrl.y - ankle.y) * 2) / 3 },
+          ];
+        }
+        P.legs.push({
+          hx: hip.x, hy: hip.y,
+          cx: cubic[0].x, cy: cubic[0].y,
+          c2x: cubic[1].x, c2y: cubic[1].y,
+          ax: ankle.x, ay: ankle.y, fa,
+        });
       }
 
       // --- 팔: 목 공 양옆에서 나와 바깥으로 휘어진다 ---
@@ -655,19 +669,10 @@
           hand = { x: side * (R + 10), y: torsoY - 16 * (1 - bumpK * 0.5) };
           ctrl = { x: side * (R + 8), y: torsoY + 2 };
         } else if (sitting) {
-          // 먼 쪽 팔은 공 뒤쪽을 따라 바닥까지 축 늘어지고,
-          // 바라보는 쪽 팔은 몸 뒤에 가려진다.
+          // 두 팔을 공 양옆으로 편안히 늘어뜨려 손을 바닥에 내려놓는다
           const sway = Math.sin(t * 1.6 + side) * 0.6;
-          if (side < 0) {
-            hand = { x: -R * 0.92 + sway, y: -handR - 1 };
-            ctrl = { x: -R * 1.22, y: torsoY + T * 0.9 };
-          } else {
-            sh.x = T * 0.15;
-            sh.y = torsoY + T * 0.8;
-            hand = { x: R * 0.4 + sway, y: bodyY + R * 0.2 };
-            ctrl = { x: R * 0.6, y: torsoY + T * 1.3 };
-          }
-          if (!it) P.frontArmBehind = 1;
+          hand = { x: side * R * 1.0 + sway, y: -handR - 1 };
+          ctrl = { x: side * R * 1.25, y: torsoY + T * 0.9 };
         } else if (sitting || st === 'dizzy') {
           // 두 팔을 공 옆으로 편안히 늘어뜨려 손을 바닥 가까이에 내려놓는다
           // (헤롱거릴 땐 느슨하게 흔들린다)
@@ -761,8 +766,9 @@
       const drawLeg = (l, i) => {
         const hex = i === 0 ? tone(col.legs, -0.1) : col.legs;
         // 공 앞을 지나는 다리는 같은 색 공과 구분되도록 윤곽을 두른다
-        if (P.legsFront) noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW + 1.2, tone(col.legs, -0.28));
-        noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex);
+        const c2 = { x: l.c2x, y: l.c2y };
+        if (P.legsFront) noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW + 1.2, tone(col.legs, -0.28), c2);
+        noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex, c2);
         foot(ctx, l.ax, l.ay, l.fa, hex);
       };
       const drawArm = (a, i) => {
@@ -778,7 +784,7 @@
       if (!P.legsFront) P.legs.forEach(drawLeg);
       ball(ctx, 0, bodyY, R, col.legs);
       contactShadow(ctx, 0, bodyY, R, tx, torsoY + T * 0.7, T * 1.5, 0.28);
-      if (P.legsFront) P.legs.forEach(drawLeg);
+      if (P.legsFront && P.legsOnTop < 0.5) P.legs.forEach(drawLeg);
 
       ball(ctx, tx, torsoY, T, col.body);
       contactShadow(ctx, tx, torsoY, T, hx, headY + H * 0.75, H * 1.1, 0.3);
@@ -787,14 +793,20 @@
       ctx.save();
       ctx.translate(hx, headY);
       ctx.rotate(P.headTilt);
-      // 영상처럼 굵고 끝이 둥근 코
-      blob(ctx, H * 0.98, H * 0.1, H * 0.6, H * 0.4, -0.08, tone(col.head, -0.05));
+      // 영상처럼 굵고 끝이 둥근 코. 고개를 앞으로 돌리면(face) 코가 얼굴 안쪽으로 들어오고
+      // 짧아 보이며, 머리 앞에 그려진다.
+      const f = P.face || 0;
+      const nose = () =>
+        blob(ctx, H * (0.98 - 0.5 * f), H * (0.1 + 0.2 * f), H * 0.6 * (1 - 0.3 * f), H * 0.4, -0.08 + 0.2 * f, tone(col.head, -0.05));
+      if (f <= 0.3) nose();
       ball(ctx, 0, 0, H, col.head);
       this.drawEye(ctx, P, col.head);
+      if (f > 0.3) nose();
       ctx.restore();
 
       if (P.item && this.item) Items.drawHeld(ctx, this.item.type, P.item.x, P.item.y, P.item.a);
       P.arms.forEach((a, i) => !armsBehind[i] && drawArm(a, i));
+      if (P.legsFront && P.legsOnTop >= 0.5) P.legs.forEach(drawLeg);
 
       this.drawEffects(ctx, P, hx, headY);
       ctx.restore();
@@ -802,7 +814,7 @@
 
     drawEye(ctx, P, headHex) {
       const H = DIM.headR;
-      const ex = H * 0.28;
+      const ex = H * (0.28 - 0.34 * (P.face || 0));
       const ey = -H * 0.14;
       const er = H * 0.42;
       if (this.blink > 0 || P.lid > 0.9) {
