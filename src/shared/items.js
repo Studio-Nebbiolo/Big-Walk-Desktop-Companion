@@ -36,38 +36,96 @@
   }
 
   const TYPES = {
-    // 노란 무전기: 주황 패널, 둥근 스피커, 검은 안테나
+    // 노란 무전기 (녹화 영상 기준): 겨자색 몸체, 빨간 캡의 검은 안테나(왼쪽 위),
+    // 주황 톱니 다이얼(오른쪽 위), 회색 스피커, 빨강·주황·초록·파랑 버튼,
+    // 왼쪽 아래 모서리가 둥글게 파인 검은 타공 그릴, 옆면 주황 버튼.
     walkie: {
       grip: { x: 0, y: 4 },
-      rest: { x: 0, y: 11, angle: 0 },
-      draw(ctx) {
-        ctx.fillStyle = '#2b2b2b';
-        rrect(ctx, -5.5, -21, 3.2, 12, 1.5);
+      rest: { x: 0, y: 12, angle: 0 },
+      draw(ctx, t = 0) {
+        // 안테나
+        ctx.fillStyle = matteFill(ctx, '#3c3d42', -24, -11);
+        rrect(ctx, -6.2, -23, 3.6, 13, 1.4);
         ctx.fill();
-        ctx.fillStyle = matteFill(ctx, '#E1622B', -15, -10);
-        rrect(ctx, 1.5, -14.5, 4, 4, 1);
+        ctx.fillStyle = '#2a2b2f';
+        rrect(ctx, -7, -11.6, 5.2, 1.6, 0.6);
         ctx.fill();
-        ctx.fillStyle = matteFill(ctx, '#EBB43A', -11, 11);
-        rrect(ctx, -7, -11, 14, 22, 3.2);
+        ctx.fillStyle = matteFill(ctx, '#D2381F', -25, -21);
+        rrect(ctx, -6.4, -25, 4, 3.4, 1.2);
         ctx.fill();
-        ctx.fillStyle = 'rgba(0,0,0,.12)';
-        rrect(ctx, 4.5, -10, 2.5, 20, 1.5);
+        // 주황 톱니 다이얼
+        ctx.fillStyle = matteFill(ctx, '#EE8420', -14.5, -10.5);
+        rrect(ctx, 2.6, -14.5, 5, 4.5, 0.8);
         ctx.fill();
-        ctx.fillStyle = matteFill(ctx, '#E8672B', -8, 0);
-        rrect(ctx, -4.6, -8, 9.2, 7.2, 1.6);
-        ctx.fill();
-        ctx.fillStyle = '#5b5345';
-        ctx.beginPath();
-        ctx.arc(0, 5.2, 3.4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#8d8270';
-        ctx.lineWidth = 0.7;
-        for (let i = -1; i <= 1; i++) {
+        ctx.strokeStyle = 'rgba(120,50,0,.45)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < 4; i++) {
           ctx.beginPath();
-          ctx.moveTo(-2.2, 5.2 + i * 1.3);
-          ctx.lineTo(2.2, 5.2 + i * 1.3);
+          ctx.moveTo(3.6 + i * 1.1, -14.3);
+          ctx.lineTo(3.6 + i * 1.1, -10.3);
           ctx.stroke();
         }
+        // 옆면 주황 버튼
+        ctx.fillStyle = '#D9701C';
+        rrect(ctx, -9, -5, 2.4, 6, 1);
+        ctx.fill();
+        // 몸체 (오른쪽 옆면을 어둡게 해서 두께감)
+        ctx.fillStyle = '#A8860F';
+        rrect(ctx, -8.4, -10.5, 17.6, 22.5, 3.6);
+        ctx.fill();
+        ctx.fillStyle = matteFill(ctx, '#E2BD22', -10.5, 12);
+        rrect(ctx, -8.4, -10.5, 16, 22.5, 3.6);
+        ctx.fill();
+        // 버튼이 박힌 살짝 도드라진 패널
+        ctx.fillStyle = '#EBCB45';
+        rrect(ctx, 0.6, -9, 6.4, 4, 1.2);
+        ctx.fill();
+        rrect(ctx, 0.9, -4.6, 5.8, 3, 1.2);
+        ctx.fill();
+        // 스피커 패널 + 스피커
+        ctx.fillStyle = '#E3C654';
+        rrect(ctx, -7.2, -9, 7.4, 7.2, 1.4);
+        ctx.fill();
+        ctx.fillStyle = '#6E6F72';
+        ctx.beginPath();
+        ctx.arc(-3.5, -5.4, 2.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(40,40,44,.55)';
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+          ctx.beginPath();
+          ctx.arc(-3.5 + i * 1.2, -5.4 + j * 1.2, 0.35, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // 버튼들
+        const dot = (x, y, r, c) => {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        };
+        dot(2, -7.2, 0.8, '#D9412A');
+        dot(4.6, -6.6, 1.5, '#EE7A1E');
+        const blink = Math.sin(t * 6) > 0.3;
+        dot(2.3, -3.2, 0.95, blink ? '#8CF7C8' : '#2FA863');
+        dot(4.8, -3.2, 0.95, '#4A7BC8');
+        // 검은 타공 그릴 (왼쪽 아래가 둥글게 파였다)
+        ctx.fillStyle = '#34383C';
+        ctx.beginPath();
+        ctx.moveTo(-6.8, -0.8);
+        ctx.lineTo(5.8, -0.8);
+        ctx.lineTo(5.8, 9.2);
+        ctx.quadraticCurveTo(5.8, 10.6, 4.4, 10.6);
+        ctx.lineTo(0.6, 10.6);
+        ctx.quadraticCurveTo(-1.8, 4.2, -6.8, 3.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#1f2226';
+        for (let y = 0.6; y < 10; y += 1.5) {
+          for (let x = -5.6; x < 5.4; x += 1.5) ctx.fillRect(x, y, 0.55, 0.55);
+        }
+        ctx.restore();
       },
     },
     // 확성기: 회색 손잡이, 흰 나팔, 빨간 띠, 검은 입구
@@ -161,7 +219,7 @@
     ctx.rotate(angle);
     ctx.scale(SIZE, SIZE);
     ctx.translate(-t.grip.x, -t.grip.y);
-    t.draw(ctx);
+    t.draw(ctx, performance.now() / 1000);
     ctx.restore();
   }
 
@@ -179,7 +237,7 @@
     ctx.scale(scale * SIZE * (item.dir || 1), scale * SIZE);
     ctx.rotate(t.rest.angle + (item.spin || 0));
     ctx.translate(-t.rest.x, -t.rest.y);
-    t.draw(ctx);
+    t.draw(ctx, performance.now() / 1000);
     ctx.restore();
   }
 

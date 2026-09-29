@@ -12,7 +12,8 @@
   const WALK_SPEED = 42;
   const BUMP_SPEED = 700; // 이보다 세게 떨어지면 엉덩방아
 
-  const DIM = { bodyR: 24, torsoR: 13, headR: 17, legLen: 40, limbW: 6, handR: 5.5 };
+  // 비율은 녹화 영상에서 잰 값: 손은 목 공의 절반 남짓, 다리는 팔보다 약간 가늘다.
+  const DIM = { bodyR: 24, torsoR: 13, headR: 17, legLen: 40, limbW: 6.5, legW: 5.2, handR: 7 };
   const HEIGHT = DIM.legLen + DIM.bodyR * 1.8 + DIM.torsoR * 1.45 + DIM.headR * 1.78;
 
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -545,16 +546,20 @@
       // --- 다리 ---
       const bumpK = st === 'bump' ? ease(clamp(this.stateT / 0.5, 0, 1)) : 1;
       for (const side of [-1, 1]) {
-        const hip = { x: side * R * 0.36, y: hipY };
+        const hip = { x: side * R * 0.26, y: hipY };
         let ankle;
         let ctrl;
         let fa = 0;
         if (sitting) {
-          // 책상다리: 두 다리가 앞에서 엇갈린다
-          hip.x = side * R * 0.45;
-          ankle = { x: -side * (R + 4), y: -6 };
-          ctrl = { x: side * R * 0.25, y: 0 };
-          fa = side > 0 ? Math.PI : 0;
+          // 영상 속 앉은 자세: 큰 공을 바닥에 대고 무릎을 공 옆까지 세운 뒤
+          // 정강이를 접어 발을 앞바닥에 딛는다. 두 다리 높이를 살짝 다르게.
+          hip.x = side * R * 0.55;
+          hip.y = bodyY + R * 0.7;
+          const knee = { x: side * (R + (side > 0 ? 8 : 6)), y: bodyY + R * (side > 0 ? 0.05 : 0.25) };
+          ankle = { x: side * (R + 13), y: -4.6 };
+          // 곡선이 무릎을 지나가도록 조절점을 잡는다
+          ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
+          fa = 0;
           P.legsFront = true;
         } else if (onButt) {
           // 엉덩방아: 쿵 하고 다리가 번쩍 들렸다가 벌어진 채 내려온다
@@ -581,8 +586,9 @@
           const stride = walking ? 8 : 0;
           const lift = walking ? Math.max(0, Math.sin(p)) * 9 : 0;
           ankle = { x: hip.x - Math.cos(p) * stride, y: -4.6 - lift };
-          ctrl = { x: (hip.x + ankle.x) / 2 + (lift > 0 ? 5 : 1), y: (hip.y + ankle.y) / 2 };
-          fa = lift > 0 ? -0.35 * (lift / 9) : 0;
+          // 드는 다리는 무릎이 앞으로 굽고, 딛는 다리는 곧게 편다
+          ctrl = { x: (hip.x + ankle.x) / 2 + 1 + lift * 0.9, y: (hip.y + ankle.y) / 2 + lift * 0.3 };
+          fa = lift > 0 ? 0.45 * (lift / 9) : 0;
         }
         P.legs.push({ hx: hip.x, hy: hip.y, cx: ctrl.x, cy: ctrl.y, ax: ankle.x, ay: ankle.y, fa });
       }
@@ -608,8 +614,12 @@
           // 놀라서 팔이 번쩍
           hand = { x: side * (R + 10), y: torsoY - 16 * (1 - bumpK * 0.5) };
           ctrl = { x: side * (R + 8), y: torsoY + 2 };
-        } else if (sitting || st === 'dizzy') {
-          // 양손을 바닥에 짚는다 (헤롱거릴 땐 느슨하게 흔들린다)
+        } else if (sitting) {
+          // 앞쪽 손은 무릎 위에 얹고, 뒤쪽 팔은 바닥까지 늘어뜨린다
+          hand = side > 0 ? { x: R + 1, y: bodyY - R * 0.1 - handR - 3 } : { x: -(R + 6), y: -handR };
+          ctrl = side > 0 ? { x: R * 1.15, y: torsoY + T * 0.6 } : { x: -(R + 9), y: torsoY + T * 1.4 };
+        } else if (st === 'dizzy') {
+          // 양손을 바닥에 짚고 느슨하게 흔들린다
           const loose = st === 'dizzy' ? Math.sin(t * 5 + side) * 3 : 0;
           hand = { x: side * (R + 11) + loose, y: -handR };
           ctrl = { x: side * (R + 12), y: torsoY + T * 1.2 };
@@ -624,8 +634,8 @@
           const p = ph + (side > 0 ? Math.PI : 0);
           const swing = walking ? Math.cos(p) * -6 : 0;
           const breathe = Math.sin(t * 1.8 + side) * 0.8;
-          hand = { x: side * R + swing, y: bodyY - R * 0.12 + breathe - (walking ? Math.abs(Math.cos(p)) * 2 : 0) };
-          ctrl = { x: side * R * 1.18 + swing * 0.4, y: torsoY + T * 1.1 };
+          hand = { x: side * R * 1.08 + swing, y: bodyY - R * 0.35 + breathe - (walking ? Math.abs(Math.cos(p)) * 2.5 : 0) };
+          ctrl = { x: side * R * 1.15 + swing * 0.4, y: torsoY + T * 0.7 };
         }
         P.arms.push({ sx: sh.x, sy: sh.y, cx: ctrl.x, cy: ctrl.y, hx: hand.x, hy: hand.y });
       }
@@ -670,7 +680,7 @@
       const s = this.scale;
       const c = this.cfg.colors;
       const col = { head: colorHex(c.head), body: colorHex(c.body), legs: colorHex(c.legs) };
-      const { bodyR: R, torsoR: T, headR: H, limbW, handR } = DIM;
+      const { bodyR: R, torsoR: T, headR: H, limbW, legW, handR } = DIM;
 
       let P = this.computePose();
       if (this.fromPose && this.blendT < this.blendDur) {
@@ -699,7 +709,9 @@
 
       const drawLeg = (l, i) => {
         const hex = i === 0 ? tone(col.legs, -0.1) : col.legs;
-        noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, limbW, hex);
+        // 공 앞을 지나는 다리는 같은 색 공과 구분되도록 윤곽을 두른다
+        if (P.legsFront) noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW + 1.2, tone(col.legs, -0.28));
+        noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex);
         foot(ctx, l.ax, l.ay, l.fa, hex);
       };
       const drawArm = (a, i) => {
@@ -724,7 +736,8 @@
       ctx.save();
       ctx.translate(hx, headY);
       ctx.rotate(P.headTilt);
-      blob(ctx, H * 0.92, H * 0.12, H * 0.55, H * 0.31, -0.12, tone(col.head, -0.06));
+      // 영상처럼 굵고 끝이 둥근 코
+      blob(ctx, H * 0.98, H * 0.1, H * 0.6, H * 0.4, -0.08, tone(col.head, -0.05));
       ball(ctx, 0, 0, H, col.head);
       this.drawEye(ctx, P, col.head);
       ctx.restore();
