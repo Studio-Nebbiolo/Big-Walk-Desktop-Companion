@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('companion', {
   openSettings: (charId) => ipcRenderer.send('settings:open', charId),
   setIgnoreMouse: (ignore) => ipcRenderer.send('mouse:ignore', ignore),
   showCharacterMenu: (charId) => ipcRenderer.send('character:menu', charId),
+  copyText: (text) => ipcRenderer.send('clipboard:write', text),
+  readClipboard: () => ipcRenderer.invoke('clipboard:read'),
 });

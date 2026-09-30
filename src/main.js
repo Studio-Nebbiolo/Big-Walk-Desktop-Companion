@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { PALETTE, PARTS, BY_ID, randomColors } = require('./shared/palette');
+const ShareCode = require('./shared/sharecode');
 
 const STAGE_HEIGHT = 320; // 작업표시줄 위로 캐릭터가 뛰어놀 공간
 const CURSOR_POLL_MS = 50;
@@ -246,6 +247,12 @@ ipcMain.handle('settings:get', () => settings);
 ipcMain.handle('palette:get', () => PALETTE);
 ipcMain.on('settings:save', (_e, next) => updateSettings(next));
 ipcMain.on('settings:open', (_e, charId) => openSettings(charId));
+// 공유 코드 복사/붙여넣기 (샌드박스 렌더러는 클립보드에 직접 못 닿는다)
+// (이 Electron 버전에서는 clipboard API 가 Promise 를 돌려줄 수 있어 await 한다)
+ipcMain.on('clipboard:write', async (_e, text) => {
+  await clipboard.writeText(String(text).slice(0, 500));
+});
+ipcMain.handle('clipboard:read', async () => String((await clipboard.readText()) ?? '').slice(0, 500));
 
 ipcMain.on('mouse:ignore', (e, ignore) => {
   const win = BrowserWindow.fromWebContents(e.sender);
@@ -261,6 +268,7 @@ ipcMain.on('character:menu', (e, charId) => {
     { label: c.name, enabled: false },
     { type: 'separator' },
     { label: '색 바꾸기…', click: () => openSettings(charId) },
+    { label: '공유 코드 복사', click: async () => await clipboard.writeText(ShareCode.encode(c)) },
     {
       label: '작별 인사하기 (삭제)',
       enabled: settings.characters.length > 1,

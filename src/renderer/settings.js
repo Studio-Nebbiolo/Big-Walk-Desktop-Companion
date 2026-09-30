@@ -66,6 +66,7 @@
 
     if (document.activeElement !== $('char-name')) $('char-name').value = c.name;
     $('remove-char').disabled = settings.characters.length <= 1;
+    $('share-code').value = ShareCode.encode(c);
 
     const tabs = $('part-tabs');
     tabs.textContent = '';
@@ -149,6 +150,54 @@
     part = 'head';
     save();
     render();
+  });
+
+  // --- 공유 코드 -------------------------------------------------------------
+  let copiedTimer = null;
+  $('share-copy').addEventListener('click', () => {
+    api.copyText($('share-code').value);
+    $('share-copy').textContent = '복사됨 ✓';
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => ($('share-copy').textContent = '복사'), 1500);
+  });
+  $('share-code').addEventListener('focus', (e) => e.target.select());
+
+  const importMsg = (text, kind = '') => {
+    $('import-msg').textContent = text;
+    $('import-msg').className = `msg ${kind}`;
+  };
+  const toggleImport = (open) => {
+    $('import-box').hidden = !open;
+    $('import-open').hidden = open;
+    if (open) {
+      $('import-code').value = '';
+      importMsg('');
+      $('import-code').focus();
+    }
+  };
+  $('import-open').addEventListener('click', () => toggleImport(true));
+  $('import-cancel').addEventListener('click', () => toggleImport(false));
+  $('import-paste').addEventListener('click', async () => {
+    $('import-code').value = (await api.readClipboard()).trim();
+    importMsg('');
+    $('import-code').focus();
+  });
+  $('import-code').addEventListener('input', () => importMsg(''));
+  $('import-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('import-add').click();
+    if (e.key === 'Escape') toggleImport(false);
+  });
+  $('import-add').addEventListener('click', () => {
+    if (settings.characters.length >= 20) return importMsg('친구는 20명까지만 함께할 수 있어요.', 'error');
+    const r = ShareCode.decode($('import-code').value);
+    if (r.error) return importMsg(r.error, 'error');
+    const id = `c${Date.now()}`;
+    settings.characters.push({ id, name: r.name, colors: r.colors });
+    selectedId = id;
+    part = 'head';
+    save();
+    render();
+    toggleImport(false);
   });
 
   const bindGlobal = (id, key, parse) =>

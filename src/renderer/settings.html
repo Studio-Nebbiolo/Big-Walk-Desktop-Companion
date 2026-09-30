@@ -11,6 +11,16 @@
     <h1>친구들</h1>
     <ul id="char-list" class="char-list"></ul>
     <button id="add-char" class="btn btn-primary">＋ 새 친구</button>
+    <button id="import-open" class="btn">🔗 코드로 친구 추가</button>
+    <div id="import-box" class="import-box" hidden>
+      <input id="import-code" type="text" placeholder="MS1-..." spellcheck="false" autocomplete="off" />
+      <button id="import-paste" class="btn small">📋 붙여넣기</button>
+      <div class="row tight">
+        <button id="import-cancel" class="btn small">취소</button>
+        <button id="import-add" class="btn btn-primary small">추가</button>
+      </div>
+      <p id="import-msg" class="msg" role="status"></p>
+    </div>
   </aside>
 
   <main class="editor">
@@ -24,6 +34,14 @@
           <span>이름</span>
           <input id="char-name" type="text" maxlength="20" />
         </label>
+      </div>
+
+      <div class="field">
+        <span>공유 코드 · 친구에게 보내면 똑같은 친구를 데려갈 수 있어요</span>
+        <div class="share-row">
+          <input id="share-code" type="text" readonly spellcheck="false" />
+          <button id="share-copy" class="btn">복사</button>
+        </div>
       </div>
 
       <div class="tabs" id="part-tabs"></div>
@@ -61,6 +79,7 @@
   <script src="../shared/palette.js"></script>
   <script src="../shared/items.js"></script>
   <script src="../shared/character.js"></script>
+  <script src="../shared/sharecode.js"></script>
   <script src="settings.js"></script>
 </body>
 </html>

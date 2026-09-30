@@ -1,0 +1,74 @@
+// 친구 공유 코드: 이름 + 세 부위 색을 짧은 글자 코드로 바꾸고 되돌린다.
+//
+// 형식: "MS1-" + base64url( [색 머리, 색 몸통, 색 다리, 이름 UTF-8 바이트..., 검사값] )
+//   - 색은 팔레트 순번(0~20). 순번이 코드에 박히므로 palette.js 의 색 순서는 바꾸면 안 된다.
+//   - 검사값은 앞 바이트들로 계산한 1바이트. 오타가 난 코드는 거절한다.
+(function (root) {
+  const Palette = root.Palette || (typeof require === 'function' ? require('./palette') : null);
+  const PREFIX = 'MS1-';
+  const MAX_NAME = 20;
+
+  function checksum(bytes) {
+    let c = 0x5a;
+    for (const b of bytes) c = (c * 31 + b + 7) & 0xff;
+    return c;
+  }
+
+  function toBase64Url(bytes) {
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function fromBase64Url(text) {
+    const b64 = text.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    return Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+  }
+
+  function encode(cfg) {
+    const idx = Palette.PARTS.map((p) => Palette.PALETTE.findIndex((c) => c.id === cfg.colors[p.id]));
+    if (idx.some((i) => i < 0)) throw new Error('팔레트에 없는 색이 있어요');
+    const name = Array.from(String(cfg.name || '').trim()).slice(0, MAX_NAME).join('');
+    const body = [...idx, ...new TextEncoder().encode(name)];
+    return PREFIX + toBase64Url(Uint8Array.from([...body, checksum(body)]));
+  }
+
+  // 성공하면 { name, colors }, 실패하면 { error } 를 돌려준다.
+  function decode(text) {
+    const raw = String(text || '').replace(/\s+/g, '');
+    if (!raw) return { error: '코드를 입력해 주세요.' };
+    if (raw.slice(0, PREFIX.length).toUpperCase() !== PREFIX) return { error: '친구 코드가 아니에요. "MS1-" 로 시작해야 해요.' };
+    const payload = raw.slice(PREFIX.length);
+    if (!payload) return { error: '코드가 너무 짧아요. 끝까지 복사했는지 확인해 주세요.' };
+    if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { error: '코드에 쓸 수 없는 글자가 들어 있어요.' };
+    let bytes;
+    try {
+      bytes = fromBase64Url(payload);
+    } catch {
+      return { error: '코드가 손상됐어요. 다시 복사해 주세요.' };
+    }
+    const n = Palette.PARTS.length;
+    if (bytes.length < n + 1) return { error: '코드가 너무 짧아요. 끝까지 복사했는지 확인해 주세요.' };
+    const body = bytes.slice(0, -1);
+    if (checksum(body) !== bytes[bytes.length - 1]) return { error: '코드가 맞지 않아요. 오타가 없는지 확인해 주세요.' };
+    const colors = {};
+    for (let i = 0; i < n; i++) {
+      const c = Palette.PALETTE[body[i]];
+      if (!c) return { error: '알 수 없는 색이 들어 있어요.' };
+      colors[Palette.PARTS[i].id] = c.id;
+    }
+    let name;
+    try {
+      name = new TextDecoder('utf-8', { fatal: true }).decode(body.slice(n));
+    } catch {
+      return { error: '이름 부분이 손상됐어요.' };
+    }
+    name = Array.from(name.trim()).slice(0, MAX_NAME).join('') || '새 친구';
+    return { name, colors };
+  }
+
+  const api = { encode, decode, PREFIX };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ShareCode = api;
+})(typeof window !== 'undefined' ? window : globalThis);
