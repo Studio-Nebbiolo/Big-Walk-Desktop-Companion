@@ -198,8 +198,6 @@
       this.dir = Math.random() < 0.5 ? -1 : 1;
       this.phase = Math.random() * Math.PI * 2;
       this.t = Math.random() * 10;
-      this.blinkT = rand(2, 5);
-      this.blink = 0;
       this.squash = 0;
       this.look = { x: 0, y: 0 };
       this.greetCooldown = rand(3, 8);
@@ -322,12 +320,6 @@
       this.blendT += dt;
       const speed = world.speed || 1;
 
-      this.blinkT -= dt;
-      if (this.blinkT <= 0) {
-        this.blink = 0.14;
-        this.blinkT = rand(2, 6);
-      }
-      this.blink = Math.max(0, this.blink - dt);
       this.squash = Math.max(0, this.squash - dt * 3);
       this.greetCooldown = Math.max(0, this.greetCooldown - dt);
 
@@ -885,7 +877,8 @@
       const erx = H * 0.35;
       const ery = H * 0.52;
       const er = ery;
-      if (this.blink > 0 || P.lid > 0.9) {
+      // 눈은 깜빡이지 않는다. 감긴 눈은 엉덩방아 찧는 순간(쿵!)에만.
+      if (P.lid > 0.9) {
         // 감은 눈
         ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 2;
@@ -921,11 +914,24 @@
         return;
       }
       if (P.sleep > 0.5) {
-        // 잠든 눈: 흰자 안에 감긴 눈꺼풀 선
-        ctx.lineWidth = 1.9;
+        // 잠든 눈: 흰자 안에 또렷한 U. 고개를 숙여도 U 가 기울지 않게
+        // 머리·몸 기울기만큼 되돌려서 항상 똑바로 선 U 로 보이게 한다.
+        const r = erx * 0.52;
+        const top = ey - ery * 0.42;
+        const bottom = ey + ery * 0.28;
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(-(P.headTilt + P.tilt));
+        ctx.translate(-ex, -ey);
+        ctx.lineWidth = 2.3;
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.arc(ex, ey - ery * 0.15, erx * 0.62, Math.PI * 0.12, Math.PI * 0.88);
+        ctx.moveTo(ex - r, top);
+        ctx.lineTo(ex - r, bottom - r);
+        ctx.arc(ex, bottom - r, r, Math.PI, 0, true);
+        ctx.lineTo(ex + r, top);
         ctx.stroke();
+        ctx.restore();
         return;
       }
       const lx = this.look.x * erx * 0.4;
