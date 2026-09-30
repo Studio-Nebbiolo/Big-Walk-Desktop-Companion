@@ -210,6 +210,22 @@
   const TYPE_IDS = Object.keys(TYPES);
   const SIZE = 1.5; // 캐릭터 머리만 한 크기
 
+  // 부드러운 접지 그림자: 작업표시줄 윗면에 발이 닿은 자리만 살짝 어둡게.
+  // 가장자리가 흐리게 사라지는 얇은 타원이라 바탕화면 위에 떠 보이지 않는다.
+  function softShadow(ctx, x, y, halfW, alpha) {
+    if (alpha <= 0.005 || halfW <= 0) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, 0.2);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, halfW);
+    g.addColorStop(0, `rgba(0,0,0,${alpha})`);
+    g.addColorStop(0.55, `rgba(0,0,0,${alpha * 0.45})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(-halfW, -halfW, halfW * 2, halfW * 2);
+    ctx.restore();
+  }
+
   // 손에 들린 상태: (x, y) 에 손잡이가 오도록 그린다.
   function drawHeld(ctx, type, x, y, angle) {
     const t = TYPES[type];
@@ -224,15 +240,15 @@
   }
 
   // 바닥에 놓인 상태
-  function drawResting(ctx, item, groundY, scale) {
+  function drawResting(ctx, item, groundY, scale, shadows = true) {
     const t = TYPES[item.type];
     if (!t) return;
     ctx.save();
     ctx.globalAlpha = item.alpha ?? 1;
-    ctx.fillStyle = 'rgba(0,0,0,.18)';
-    ctx.beginPath();
-    ctx.ellipse(item.x, groundY - 1, 13 * SIZE * scale * (1 - Math.min(0.6, item.h / 400)), 3 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (shadows) {
+      const fade = Math.max(0, 1 - item.h / 80);
+      softShadow(ctx, item.x, groundY - 1, 11 * SIZE * scale, 0.22 * fade);
+    }
     ctx.translate(item.x, groundY - item.h);
     ctx.scale(scale * SIZE * (item.dir || 1), scale * SIZE);
     ctx.rotate(t.rest.angle + (item.spin || 0));
@@ -241,5 +257,5 @@
     ctx.restore();
   }
 
-  root.Items = { TYPES, TYPE_IDS, drawHeld, drawResting, tone };
+  root.Items = { TYPES, TYPE_IDS, drawHeld, drawResting, softShadow, tone };
 })(window);

@@ -102,6 +102,7 @@
     $('size').value = settings.size;
     $('size-out').textContent = `${Math.round(settings.size * 100)}%`;
     $('greet').checked = settings.greet;
+    $('shadows').checked = settings.shadows;
     $('items').checked = settings.items;
     $('paused').checked = settings.paused;
     $('startup').checked = settings.launchAtStartup;
@@ -159,6 +160,7 @@
   bindGlobal('speed', 'speed', (t) => +t.value);
   bindGlobal('size', 'size', (t) => +t.value);
   bindGlobal('greet', 'greet', (t) => t.checked);
+  bindGlobal('shadows', 'shadows', (t) => t.checked);
   bindGlobal('items', 'items', (t) => t.checked);
   bindGlobal('paused', 'paused', (t) => t.checked);
   bindGlobal('startup', 'launchAtStartup', (t) => t.checked);

@@ -41,6 +41,7 @@
       if (existing) {
         existing.cfg = cfg;
         existing.globalSize = next.size;
+        existing.showShadow = next.shadows;
         return existing;
       }
       const c = new Character(cfg, {
@@ -48,6 +49,7 @@
         h: H * 0.6, // 새로 추가된 친구는 위에서 떨어진다
       });
       c.globalSize = next.size;
+      c.showShadow = next.shadows;
       c.state = 'air';
       c.afterLand = 'wave';
       return c;
@@ -223,7 +225,7 @@
         c.lookAt(mouse && (c === hover || c === drag?.char) ? mouse.x : null, mouse?.y, groundY());
       }
       // 뒤에 있는 캐릭터(드래그 중인 캐릭터는 맨 앞)
-      for (const it of items) if (!it.heldBy) Items.drawResting(ctx, it, groundY(), settings.size);
+      for (const it of items) if (!it.heldBy) Items.drawResting(ctx, it, groundY(), settings.size, settings.shadows);
       const order = chars.slice().sort((a, b) => (a === drag?.char) - (b === drag?.char));
       for (const c of order) c.draw(ctx, groundY());
     }

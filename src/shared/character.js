@@ -797,12 +797,25 @@
       }
       this.lastPose = P;
 
-      // 그림자
-      const shadowA = clamp(0.28 - this.h / 900, 0.05, 0.28);
-      ctx.fillStyle = `rgba(0,0,0,${shadowA})`;
-      ctx.beginPath();
-      ctx.ellipse(this.x, groundY - 1, (R + 8) * s * (1 - Math.min(0.5, this.h / 600)), 4.5 * s, 0, 0, Math.PI * 2);
-      ctx.fill();
+      // 발밑 그림자: 실제로 바닥에 닿은 부분(두 발, 앉았을 때는 큰 공)만 감싸는
+      // 얇고 흐린 그림자. 뜨면 빠르게 옅어져 공중에 그림자가 떠 보이지 않는다.
+      if (this.showShadow !== false) {
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (const l of P.legs) {
+          lo = Math.min(lo, l.ax - 2);
+          hi = Math.max(hi, l.ax + 11);
+        }
+        if (P.bodyY > -R * 1.2) {
+          // 큰 공이 바닥에 닿아 있다
+          lo = Math.min(lo, -R * 0.75);
+          hi = Math.max(hi, R * 0.75);
+        }
+        const fade = Math.max(0, 1 - this.h / (70 * s));
+        const cx = this.x + ((lo + hi) / 2) * this.dir * s;
+        const halfW = ((hi - lo) / 2 + 5) * s * (1 - 0.3 * (1 - fade));
+        Items.softShadow(ctx, cx, groundY - 1, halfW, 0.24 * fade);
+      }
 
       ctx.save();
       ctx.translate(this.x, groundY - this.h);
