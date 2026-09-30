@@ -411,7 +411,7 @@
             this.dir = Math.sign(dx);
             const step = Math.min(Math.abs(dx), WALK_SPEED * s * speed * 1.15 * dt);
             this.x += this.dir * step;
-            this.phase += dt * 7.5 * Math.sqrt(speed);
+            this.phase += dt * 9.4 * Math.sqrt(speed); // 약 3걸음/초
           }
         }
       }
@@ -432,7 +432,7 @@
       if (this.state === 'walk') {
         const v = WALK_SPEED * s * speed;
         this.x += this.dir * v * dt;
-        this.phase += dt * 7.5 * Math.sqrt(speed);
+        this.phase += dt * 9.4 * Math.sqrt(speed); // 약 3걸음/초
         if (this.x <= minX) {
           this.x = minX;
           this.dir = 1;
@@ -539,12 +539,14 @@
       // --- 몸 높이 / 흔들림 ---
       let bob = 0;
       if (walking) {
-        bob = -Math.abs(Math.cos(ph)) * 3;
-        P.tilt = Math.sin(ph) * 0.05 + 0.04;
-        // 머리와 목이 한 박자 늦게 따라오는 출렁임
+        // 영상 분석: 한 발 디딜 때마다 몸 전체가 통 하고 떠오르는, 가볍게 종종 뛰는 걸음
+        bob = -Math.abs(Math.sin(ph)) * 4.5;
+        P.tilt = Math.sin(ph) * 0.045 + 0.03;
+        // 머리와 목이 반 박자 늦게 따라오는 출렁임
         P.torsoX = -Math.sin(ph - 0.6) * 1.2;
-        P.headX = -Math.sin(ph - 1.1) * 2.2;
-        P.headTilt = -Math.sin(ph - 0.9) * 0.07;
+        P.headX = -Math.sin(ph - 1.1) * 2;
+        P.headDY = Math.abs(Math.sin(ph - 0.6)) * 1.5;
+        P.headTilt = -Math.sin(ph - 0.9) * 0.06;
       } else if (st === 'cheer') {
         bob = -Math.abs(Math.sin(this.stateT * 12)) * 3;
       } else if (sleeping) {
@@ -648,14 +650,14 @@
           ctrl = { x: hip.x + sw * 0.4 + side * 2, y: hip.y + L * 0.5 };
           fa = 0.35;
         } else {
-          // 걷기: 두 발이 번갈아 들렸다 앞으로 나간다
+          // 걷기 (영상 분석): 보폭은 짧고, 딛는 다리는 곧게 펴고,
+          // 드는 다리는 무릎이 굽으면서 발이 뒤쪽으로 차올라간다.
           const p = ph + (side > 0 ? 0 : Math.PI);
-          const stride = walking ? 8 : 0;
-          const lift = walking ? Math.max(0, Math.sin(p)) * 9 : 0;
-          ankle = { x: hip.x - Math.cos(p) * stride, y: -4.6 - lift };
-          // 드는 다리는 무릎이 앞으로 굽고, 딛는 다리는 곧게 편다
-          ctrl = { x: (hip.x + ankle.x) / 2 + 1 + lift * 0.9, y: (hip.y + ankle.y) / 2 + lift * 0.3 };
-          fa = lift > 0 ? 0.45 * (lift / 9) : 0;
+          const stride = walking ? 3.5 : 0;
+          const lift = walking ? Math.max(0, Math.sin(p)) * 10 : 0;
+          ankle = { x: hip.x - Math.cos(p) * stride - lift * 0.65, y: -4.6 - lift };
+          ctrl = { x: (hip.x + ankle.x) / 2 + 1 + lift * 0.75, y: (hip.y + ankle.y) / 2 + lift * 0.15 };
+          fa = lift > 0 ? 0.65 * (lift / 10) : 0; // 차올린 발은 발끝이 아래로
           if (st === 'sleep') ctrl.x += side > 0 ? 7 : 5; // 선 채로 졸 때 무릎이 앞으로 굽는다
         }
         // 모든 다리를 3차 곡선으로 통일해 두면 자세 사이를 부드럽게 섞을 수 있다
@@ -681,6 +683,7 @@
         const sh = { x: side * T * 0.92, y: torsoY };
         let hand;
         let ctrl;
+        let cub = null; // 팔꿈치가 또렷하게 꺾이는 팔은 조절점 두 개로
         if (dangling) {
           hand = { x: side * (T + 8) + Math.sin(t * 6 + side) * 3, y: headY - H - 10 };
           ctrl = { x: side * (T + 16), y: torsoY - 4 };
@@ -718,6 +721,16 @@
         } else if (airborne) {
           hand = { x: side * (R + 12), y: torsoY - 4 };
           ctrl = { x: side * (R + 6), y: torsoY + 10 };
+        } else if (walking) {
+          // 걸을 때 팔 (영상 분석): 목 공 옆에서 거의 수평으로 바깥으로 뻗었다가
+          // 팔꿈치에서 아래로 꺾여, 손이 큰 공 윗부분(허리) 바깥 옆에 떠 있다.
+          // 앞뒤로 흔들지 않고, 같은 쪽 발을 들 때 그 팔이 살짝 들썩인다.
+          const lift = Math.max(0, Math.sin(ph + (side > 0 ? 0 : Math.PI)));
+          hand = { x: side * R * 1.28, y: bodyY - R * 0.38 - lift * 2.5 };
+          cub = [
+            { x: side * R * 1.2, y: sh.y + 2 - lift * 1.5 },
+            { x: side * R * 1.45, y: hand.y - 11 },
+          ];
         } else {
           const p = ph + (side > 0 ? Math.PI : 0);
           const swing = walking ? Math.cos(p) * -6 : 0;
@@ -725,7 +738,8 @@
           hand = { x: side * R * 1.08 + swing, y: bodyY - R * 0.35 + breathe - (walking ? Math.abs(Math.cos(p)) * 2.5 : 0) };
           ctrl = { x: side * R * 1.15 + swing * 0.4, y: torsoY + T * 0.7 };
         }
-        P.arms.push({ sx: sh.x, sy: sh.y, cx: ctrl.x, cy: ctrl.y, hx: hand.x, hy: hand.y });
+        if (cub) ctrl = cub[0];
+        P.arms.push({ sx: sh.x, sy: sh.y, cx: ctrl.x, cy: ctrl.y, hx: hand.x, hy: hand.y, cub });
       }
 
       // --- 들고 있는 물건 ---
@@ -736,23 +750,23 @@
         if (it === 'radio') {
           // 두 손으로 배 앞에 든다. 쓸 때는 가슴까지 들어 올려 음악을 튼다.
           const y = using ? torsoY + T * 0.9 : bodyY - R * 0.15;
-          Object.assign(front, { hx: 21, hy: y + 3, cx: R * 1.25, cy: torsoY + T * 1.2 });
-          Object.assign(back, { hx: -21, hy: y + 3, cx: -R * 1.25, cy: torsoY + T * 1.2 });
+          Object.assign(front, { cub: null, hx: 21, hy: y + 3, cx: R * 1.25, cy: torsoY + T * 1.2 });
+          Object.assign(back, { cub: null, hx: -21, hy: y + 3, cx: -R * 1.25, cy: torsoY + T * 1.2 });
           P.item = { x: 0, y, a: using ? Math.sin(t * 6) * 0.06 : 0 };
           if (using) P.fx = 'notes';
         } else if (it === 'megaphone' && using) {
           // 두 손으로 확성기를 입에 대고 앞으로 외친다
           const gx = H * 1.55;
           const gy = headY + H * 0.95;
-          Object.assign(front, { hx: gx, hy: gy, cx: R * 1.2, cy: torsoY + T * 0.8 });
-          Object.assign(back, { hx: gx + 20, hy: gy - 9, cx: R * 0.7, cy: torsoY + T * 1.5 });
+          Object.assign(front, { cub: null, hx: gx, hy: gy, cx: R * 1.2, cy: torsoY + T * 0.8 });
+          Object.assign(back, { cub: null, hx: gx + 20, hy: gy - 9, cx: R * 0.7, cy: torsoY + T * 1.5 });
           P.item = { x: gx, y: gy, a: -0.08 };
           P.fx = 'shout';
         } else if (it === 'walkie' && using) {
           // 무전기를 얼굴 옆에 대고 말한다
           const gx = H * 1.2;
           const gy = headY + H * 0.75;
-          Object.assign(front, { hx: gx, hy: gy, cx: R * 1.25, cy: torsoY + T * 0.9 });
+          Object.assign(front, { cub: null, hx: gx, hy: gy, cx: R * 1.25, cy: torsoY + T * 0.9 });
           P.item = { x: gx, y: gy - 3, a: -0.15 };
           P.fx = 'radio';
         } else {
@@ -760,6 +774,13 @@
           P.item = { x: front.hx, y: front.hy, a: crouch ? a + 0.2 : a };
         }
       }
+      // 모든 팔을 3차 곡선으로 통일한다 (자세 사이를 부드럽게 섞기 위해)
+      P.arms = P.arms.map((a) => {
+        const q = { x: a.cx, y: a.cy };
+        const c1 = a.cub ? a.cub[0] : { x: a.sx + ((q.x - a.sx) * 2) / 3, y: a.sy + ((q.y - a.sy) * 2) / 3 };
+        const c2 = a.cub ? a.cub[1] : { x: a.hx + ((q.x - a.hx) * 2) / 3, y: a.hy + ((q.y - a.hy) * 2) / 3 };
+        return { sx: a.sx, sy: a.sy, cx: c1.x, cy: c1.y, c2x: c2.x, c2y: c2.y, hx: a.hx, hy: a.hy };
+      });
       return P;
     }
 
@@ -805,7 +826,7 @@
       };
       const drawArm = (a, i) => {
         const hex = i === 0 ? tone(col.body, -0.08) : col.body;
-        noodle(ctx, { x: a.sx + tx, y: a.sy }, { x: a.cx + tx * 0.5, y: a.cy }, { x: a.hx, y: a.hy }, limbW, hex);
+        noodle(ctx, { x: a.sx + tx, y: a.sy }, { x: a.cx + tx * 0.5, y: a.cy }, { x: a.hx, y: a.hy }, limbW, hex, { x: a.c2x, y: a.c2y });
         ball(ctx, a.hx, a.hy, handR, hex);
       };
 
