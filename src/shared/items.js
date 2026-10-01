@@ -171,7 +171,7 @@
         ctx.fill();
       },
     },
-    // 라디오 (레퍼런스 사진): 세로로 선 청록 상자, 왼쪽 위 주황 표시등,
+    // 라디오 (레퍼런스 사진): 세로로 선 청록 상자, 오른쪽 위 안테나, 왼쪽 위 주황 표시등,
     // 주황 이퀄라이저 막대가 춤추는 검은 화면, 아래 큰 원형 스피커, 왼쪽 옆 주황 다이얼.
     radio: {
       grip: { x: -9, y: 6 },
@@ -179,6 +179,26 @@
       hands: [{ x: -10.6, y: 4 }, { x: 11.8, y: 4 }], // 양 옆면
       rest: { x: 0, y: 13.5, angle: 0 },
       draw(ctx, t = 0) {
+        // 오른쪽 위 안테나 (뽑아 올린 막대 + 끝 구슬)
+        ctx.strokeStyle = '#9aa3a6';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(8.2, -12.5);
+        ctx.lineTo(11.5, -31);
+        ctx.stroke();
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(8.2, -12.5);
+        ctx.lineTo(9.2, -18);
+        ctx.stroke();
+        ctx.fillStyle = '#3b3f42';
+        ctx.beginPath();
+        ctx.arc(11.6, -31.4, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2a2d30';
+        rrect(ctx, 6.6, -14.2, 3.4, 2.2, 0.8);
+        ctx.fill();
         // 옆면(두께)과 몸체
         ctx.fillStyle = '#1D5E52';
         rrect(ctx, -10, -13, 21.5, 26.5, 3.5);

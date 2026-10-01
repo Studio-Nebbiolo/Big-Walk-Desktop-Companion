@@ -132,18 +132,27 @@
     return { x: x * c - y * s, y: x * s + y * c };
   }
 
-  // 앉았을 때의 다리 (아빠다리, 레퍼런스): 큰 공이 엇갈린 다리 위에 살짝 얹혀 있고,
-  // 두 다리는 공 아래 가운데에서 X 자로 엇갈린 뒤 공보다 훨씬 넓게 양옆으로 길게 뻗어
-  // 발이 공 바깥 바닥에 닿는다.
+  // 앉았을 때의 다리 (사용자 그림 기준, 오른쪽을 볼 때. 왼쪽을 볼 땐 좌우 대칭):
+  // 큰 공은 바닥에 앉아 있고 두 다리가 공 아래쪽 앞을 가로질러 엇갈린다.
+  //  - 앞쪽 다리(side 1): 공 오른쪽 아래에서 나와 무릎이 오른쪽으로 툭 튀어나왔다가,
+  //    정강이가 접혀 공 앞을 가로질러 왼쪽 아래 바닥에 발을 댄다.
+  //  - 뒤쪽 다리(side -1): 공 왼쪽 아래에서 나와 공 앞을 가로질러 오른쪽 바닥에 발을 댄다.
   function crossLeg(side, bodyY) {
     const R = DIM.bodyR;
-    const hip = { x: side * R * 0.3, y: bodyY + R * 0.85 };
     if (side > 0) {
-      // 앞쪽 다리: 공 아래로 내려와 엇갈린 뒤 반대쪽 바닥 멀리 발을 댄다
-      return { hip, c1: { x: R * 0.1, y: -2 }, c2: { x: -R * 0.6, y: -3 }, ankle: { x: -(R + 12), y: -4.8 } };
+      return {
+        hip: { x: R * 0.5, y: bodyY + R * 0.35 },
+        c1: { x: R * 2.6, y: bodyY - R * 0.1 }, // 무릎이 공 오른쪽 바깥으로 툭 튀어나온다
+        c2: { x: R * 2.0, y: bodyY + R * 0.85 }, // 정강이가 접혀 공 앞을 가로지른다
+        ankle: { x: -R * 0.75, y: -4.6 },
+      };
     }
-    // 뒤쪽 다리: 엇갈린 뒤 반대쪽으로 비스듬히 올라가 발끝이 살짝 들린다
-    return { hip, c1: { x: -R * 0.1, y: -4 }, c2: { x: R * 0.7, y: -6 }, ankle: { x: R + 14, y: -12 } };
+    return {
+      hip: { x: -R * 0.75, y: bodyY + R * 0.3 },
+      c1: { x: -R * 0.4, y: bodyY + R * 0.8 },
+      c2: { x: R * 0.5, y: bodyY + R * 0.75 },
+      ankle: { x: R * 1.3, y: -4.6 },
+    };
   }
 
   // 엉덩방아 / 헤롱헤롱 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
@@ -538,6 +547,7 @@
         sleep: 0, // 잠든 눈
         frontArmBehind: 0,
         backArmBehind: 0,
+        holding: 0, // 두 손으로 물건을 앞에 들고 있다
         legsOnTop: 0,
         face: 0, // 0 = 옆얼굴, 1 = 정면. 앉을 때는 보는 사람 쪽으로 고개를 돌린다
         legs: [],
@@ -567,7 +577,7 @@
       }
 
       if (sitting) {
-        P.bodyY = -R - 10; // 큰 공이 엇갈린 다리 위에 철푸덕 얹힌다
+        P.bodyY = -R * 0.98; // 큰 공이 바닥에 철푸덕
         P.face = 0.55;
         P.legsOnTop = 1; // 엇갈린 다리가 팔보다 앞에 보인다
       }
@@ -632,7 +642,7 @@
           hip.y = leg.hip.y;
           ankle = leg.ankle;
           cubic = [leg.c1, leg.c2];
-          fa = side > 0 ? Math.PI + 0.1 : -0.45; // 발끝은 바깥쪽 (들린 발은 비스듬히 위로)
+          fa = side > 0 ? Math.PI : 0; // 발끝은 발이 놓인 바깥쪽을 향한다
           P.legsFront = true;
         } else if (onButt) {
           // 엉덩방아 / 헤롱헤롱: 두 다리를 가지런히 앞으로: 큰 공을 바닥에 대고 두 다리를 가지런히 앞으로 모은다.
@@ -717,7 +727,7 @@
         } else if (sitting) {
           // 두 팔을 몸 양옆으로 축 늘어뜨려 무릎 바깥 바닥에 손을 내려놓는다
           const sway = Math.sin(t * 1.6 + side) * 0.6;
-          hand = { x: side * (R + 5) + sway, y: -handR - 6 };
+          hand = { x: side * (R + 4) + sway, y: -handR - 1 };
           ctrl = { x: side * R * 1.35, y: torsoY + T * 0.8 };
         } else if (sitting || st === 'dizzy') {
           // 두 팔을 공 옆으로 편안히 늘어뜨려 손을 바닥 가까이에 내려놓는다
@@ -800,6 +810,15 @@
             }
           }
           const h = Items.hold(it, cx, cy, a);
+          if (!overhead) {
+            // 어깨가 목 공 밖으로 삐져나오지 않도록 팔을 목 공 안쪽에서 시작시키고,
+            // 그릴 때 목 공과 겹치는 부분은 가린다 (P.holding)
+            back.sx = -T * 0.35;
+            back.sy = torsoY + T * 0.25;
+            front.sx = T * 0.35;
+            front.sy = torsoY + T * 0.25;
+            P.holding = 1;
+          }
           Object.assign(back, {
             cub: null,
             hx: h.hands[0].x,
@@ -916,8 +935,25 @@
       blob(ctx, H * (1.02 - 0.4 * f), -H * 0.06, H * 0.62 * (1 - 0.3 * f), H * 0.4, -0.05, tone(col.head, -0.04));
       ctx.restore();
 
-      if (P.item && this.item) Items.drawHeld(ctx, this.item.type, P.item.x, P.item.y, P.item.a);
-      P.arms.forEach((a, i) => !armsBehind[i] && drawArm(a, i));
+      if (P.holding > 0.5 && P.item && this.item) {
+        // 두 손으로 들 때: 물건의 먼 쪽을 잡는 팔(앞쪽 팔)은 물건 뒤로, 가까운 쪽 팔은 물건 앞으로.
+        // 두 팔 모두 목 공과 겹치는 부분은 가려서 목 공 가장자리에서 자연스럽게 나오게 한다.
+        const outsideTorso = (fn) => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(-1000, -1000, 2000, 2000);
+          ctx.arc(tx, torsoY, T - 0.5, 0, Math.PI * 2);
+          ctx.clip('evenodd');
+          fn();
+          ctx.restore();
+        };
+        outsideTorso(() => drawArm(P.arms[1], 1));
+        Items.drawHeld(ctx, this.item.type, P.item.x, P.item.y, P.item.a);
+        outsideTorso(() => drawArm(P.arms[0], 0));
+      } else {
+        if (P.item && this.item) Items.drawHeld(ctx, this.item.type, P.item.x, P.item.y, P.item.a);
+        P.arms.forEach((a, i) => !armsBehind[i] && drawArm(a, i));
+      }
       if (P.legsFront && P.legsOnTop >= 0.5) P.legs.forEach(drawLeg);
 
       this.drawEffects(ctx, P, hx, headY);
