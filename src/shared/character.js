@@ -71,39 +71,39 @@
     ctx.restore();
   }
 
-  // 원통처럼 보이도록 어두운 바탕 위에 밝은 심을 한 번 더 그린다.
-  // c2 를 주면 3차 곡선(두 조절점), 아니면 2차 곡선.
+  // 팔다리는 원기둥: 공(ball)과 같은 왼쪽 위 빛을 받아, 단면을 가로질러 어두운 가장자리 →
+  // 밝은 쪽으로 부드럽게 바뀐다. 같은 곡선을 점점 가늘고 밝게, 빛 쪽으로 조금씩 옮겨 겹쳐 그린다.
+  // (전체 경로를 한 방향으로 옮기면 곡선 어디서든 법선 방향 성분만큼 밝은 부분이 빛 쪽으로 간다.)
+  // 끝은 둥근 마개라서 반구처럼 보인다. c2 를 주면 3차 곡선(두 조절점), 아니면 2차 곡선.
+  const TUBE = [
+    // [굵기 비율, 밝기] — ball() 의 반지름별 밝기와 같은 단계
+    [1, -0.24],
+    [0.84, -0.14],
+    [0.66, -0.05],
+    [0.48, 0],
+    [0.3, 0.07],
+  ];
+  const LIGHT = { x: -0.55, y: -0.83 };
   function noodle(ctx, a, c, b, w, hex, c2) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const path = (dx, dy) => {
+    for (const [f, k] of TUBE) {
+      const o = (1 - f) * w * 0.24; // 가늘수록 빛 쪽으로 (항상 바깥 층 안에 머문다)
+      const dx = LIGHT.x * o;
+      const dy = LIGHT.y * o;
       ctx.beginPath();
       ctx.moveTo(a.x + dx, a.y + dy);
       if (c2) ctx.bezierCurveTo(c.x + dx, c.y + dy, c2.x + dx, c2.y + dy, b.x + dx, b.y + dy);
       else ctx.quadraticCurveTo(c.x + dx, c.y + dy, b.x + dx, b.y + dy);
-    };
-    path(0, 0);
-    ctx.strokeStyle = tone(hex, -0.2);
-    ctx.lineWidth = w;
-    ctx.stroke();
-    path(-w * 0.1, -w * 0.14);
-    ctx.strokeStyle = hex;
-    ctx.lineWidth = w * 0.62;
-    ctx.stroke();
+      ctx.strokeStyle = k ? tone(hex, k) : hex;
+      ctx.lineWidth = w * f;
+      ctx.stroke();
+    }
   }
 
+  // 발은 납작한 타원체: 공과 같은 방식으로 칠한다
   function foot(ctx, x, y, angle, hex) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    const g = ctx.createLinearGradient(0, -4.6, 0, 4.6);
-    g.addColorStop(0, tone(hex, 0.08));
-    g.addColorStop(1, tone(hex, -0.22));
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.ellipse(4, 0, 8.5, 4.6, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    blob(ctx, x + Math.cos(angle) * 4, y + Math.sin(angle) * 4, 8.5, 4.6, angle, hex);
   }
 
   function star(ctx, x, y, r, alpha) {
@@ -1013,9 +1013,25 @@
 
       const drawLeg = (l, i) => {
         const hex = i === 0 ? tone(col.legs, -0.1) : col.legs;
-        // 공 앞을 지나는 다리는 같은 색 공과 구분되도록 윤곽을 두른다
+        // 공 앞을 지나는 다리는 같은 색 공 위에 부드러운 그림자를 드리워 떠 보이게 한다
+        // (빛이 왼쪽 위라서 그림자는 오른쪽 아래로, 공 안에만 진다)
         const c2 = { x: l.c2x, y: l.c2y };
-        if (P.legsFront) noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW + 1.2, tone(col.legs, -0.28), c2);
+        if (P.legsFront) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(0, bodyY, R, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.filter = 'blur(1.6px)';
+          ctx.translate(1.6, 2.2);
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+          ctx.lineWidth = legW + 1;
+          ctx.beginPath();
+          ctx.moveTo(l.hx, l.hy);
+          ctx.bezierCurveTo(l.cx, l.cy, c2.x, c2.y, l.ax, l.ay);
+          ctx.stroke();
+          ctx.restore();
+        }
         noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex, c2);
         foot(ctx, l.ax, l.ay, l.fa, hex);
       };
