@@ -101,6 +101,38 @@
     }
   }
 
+  // 구에 원기둥이 붙은 곳: 원기둥이 구 표면을 빠져나오는 점을 찾는다.
+  function exitPoint(a, c, c2, b, cx, cy, cr) {
+    let last = a;
+    for (let i = 0; i <= 24; i++) {
+      const k = i / 24;
+      const u = 1 - k;
+      const p = {
+        x: u * u * u * a.x + 3 * u * u * k * c.x + 3 * u * k * k * c2.x + k * k * k * b.x,
+        y: u * u * u * a.y + 3 * u * u * k * c.y + 3 * u * k * k * c2.y + k * k * k * b.y,
+      };
+      if (Math.hypot(p.x - cx, p.y - cy) >= cr) return p;
+      last = p;
+    }
+    return last;
+  }
+
+  // 붙은 곳 근처의 원기둥은 구에 가려 빛을 덜 받는다: 붙은 점에서 멀어질수록 옅어지는 그늘을
+  // 원기둥 위에만 덧칠한다. (같은 곡선을 같은 굵기로 그라데이션 색으로 한 번 더 긋는다)
+  function rootShade(ctx, a, c, c2, b, w, at, len, alpha) {
+    const g = ctx.createRadialGradient(at.x, at.y, 0, at.x, at.y, len);
+    g.addColorStop(0, `rgba(0,0,0,${alpha})`);
+    g.addColorStop(0.45, `rgba(0,0,0,${alpha * 0.45})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = g;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.bezierCurveTo(c.x, c.y, c2.x, c2.y, b.x, b.y);
+    ctx.stroke();
+  }
+
   // 발은 납작한 타원체: 공과 같은 방식으로 칠한다
   function foot(ctx, x, y, angle, hex) {
     blob(ctx, x + Math.cos(angle) * 4, y + Math.sin(angle) * 4, 8.5, 4.6, angle, hex);
@@ -1032,14 +1064,36 @@
           ctx.stroke();
           ctx.restore();
         }
-        noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex, c2);
+        const hip = { x: l.hx, y: l.hy };
+        const c1 = { x: l.cx, y: l.cy };
+        const ank = { x: l.ax, y: l.ay };
+        noodle(ctx, hip, c1, ank, legW, hex, c2);
+        // 구(아래 공)에서 빠져나오는 다리 윗부분은 공에 가려 어둡다
+        rootShade(ctx, hip, c1, c2, ank, legW, exitPoint(hip, c1, c2, ank, 0, bodyY, R), legW * 3.2, 0.42);
         foot(ctx, l.ax, l.ay, l.fa, hex);
       };
       const drawArm = (a, i) => {
         const hex = i === 0 ? tone(col.body, -0.08) : col.body;
-        noodle(ctx, { x: a.sx + tx, y: a.sy }, { x: a.cx + tx * 0.5, y: a.cy }, { x: a.hx, y: a.hy }, limbW, hex, { x: a.c2x, y: a.c2y });
+        const sh = { x: a.sx + tx, y: a.sy };
+        const c1 = { x: a.cx + tx * 0.5, y: a.cy };
+        const c2 = { x: a.c2x, y: a.c2y };
+        const hand = { x: a.hx, y: a.hy };
+        noodle(ctx, sh, c1, hand, limbW, hex, c2);
+        rootShade(ctx, sh, c1, c2, hand, limbW, exitPoint(sh, c1, c2, hand, tx, torsoY, T), limbW * 2.4, 0.32);
         ball(ctx, a.hx, a.hy, handR, hex);
       };
+      // 원기둥이 구에 박힌 자리 둘레의 구 표면에도 오목한 그늘이 진다
+      const legJoints = () =>
+        P.legs.forEach((l) => {
+          const e = exitPoint({ x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.c2x, y: l.c2y }, { x: l.ax, y: l.ay }, 0, bodyY, R);
+          contactShadow(ctx, 0, bodyY, R, e.x, e.y, legW * 1.9, 0.3);
+        });
+      const armJoints = (pick) =>
+        P.arms.forEach((a, i) => {
+          if (!pick(i)) return;
+          const e = exitPoint({ x: a.sx + tx, y: a.sy }, { x: a.cx + tx * 0.5, y: a.cy }, { x: a.c2x, y: a.c2y }, { x: a.hx, y: a.hy }, tx, torsoY, T);
+          contactShadow(ctx, tx, torsoY, T, e.x, e.y, limbW * 1.7, 0.28);
+        });
 
       // 머리 뒤로 올라간 팔은 먼저 그린다
       const armsBehind = P.arms.map(
@@ -1051,10 +1105,12 @@
       if (!P.legsFront) P.legs.forEach(drawLeg);
       ball(ctx, 0, bodyY, R, col.legs);
       contactShadow(ctx, 0, bodyY, R, tx, torsoY + T * 0.7, T * 1.5, 0.28);
+      legJoints();
       if (P.legsFront && P.legsOnTop < 0.5) P.legs.forEach(drawLeg);
 
       ball(ctx, tx, torsoY, T, col.body);
       contactShadow(ctx, tx, torsoY, T, hx, headY + H * 0.75, H * 1.1, 0.3);
+      armJoints((i) => !armsBehind[i]);
 
       // 머리: 코 → 머리 공 → 눈
       ctx.save();
