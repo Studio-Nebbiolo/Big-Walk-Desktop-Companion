@@ -203,6 +203,7 @@
       this.target = null;
       this.itemCooldown = 0;
       this.lastPose = null;
+      this.flares = []; // 쏘아 올린 신호탄과 불꽃 (화면 좌표)
       this.setState(opts.state || 'idle');
     }
 
@@ -318,6 +319,7 @@
 
     update(dt, world) {
       this.t += dt;
+      this.updateFlares(dt);
       this.stateT += dt;
       this.blendT += dt;
       const speed = world.speed || 1;
@@ -424,6 +426,13 @@
         this.target = null;
       }
       if (this.state === 'drop' && this.item && this.stateT > 0.45) this.dropItem(false);
+
+      // 신호탄: 총을 머리 위로 치켜든 뒤 한 번 쏜다
+      if (this.state === 'use' && this.item?.type === 'flare' && !this.fired && this.stateT > 0.7) {
+        this.fired = true;
+        this.fireFlare(world);
+      }
+      if (this.state !== 'use') this.fired = false;
 
       if (this.stateT >= this.stateDur) this.onStateEnd(world);
 
@@ -746,12 +755,28 @@
         const back = P.arms[0];
         const using = st === 'use';
         if (it === 'radio') {
-          // 두 손으로 배 앞에 든다. 쓸 때는 가슴까지 들어 올려 음악을 튼다.
-          const y = using ? torsoY + T * 0.9 : bodyY - R * 0.15;
-          Object.assign(front, { cub: null, hx: 21, hy: y + 3, cx: R * 1.25, cy: torsoY + T * 1.2 });
-          Object.assign(back, { cub: null, hx: -21, hy: y + 3, cx: -R * 1.25, cy: torsoY + T * 1.2 });
-          P.item = { x: 0, y, a: using ? Math.sin(t * 6) * 0.06 : 0 };
-          if (using) P.fx = 'notes';
+          // 레퍼런스처럼 한 손으로 가슴 높이에 들고 다닌다.
+          // 쓸 때는 귀 옆까지 들어 올려 음악을 틀고, 박자에 맞춰 살짝 흔든다.
+          if (using) {
+            Object.assign(front, { cub: null, hx: H * 1.15, hy: headY + H * 0.85, cx: R * 1.3, cy: torsoY + T * 0.9 });
+            P.item = { x: front.hx, y: front.hy, a: -0.1 + Math.sin(t * 6) * 0.06 };
+            P.fx = 'notes';
+          } else {
+            Object.assign(front, { cub: null, hx: R * 0.95, hy: torsoY + T * 1.1, cx: R * 1.3, cy: torsoY + T * 2 });
+            P.item = { x: front.hx, y: front.hy, a: 0 };
+          }
+        } else if (it === 'flare' && using) {
+          // 신호탄 총을 머리 위로 곧게 치켜들고 쏜다 (쏘는 순간 반동으로 팔이 살짝 튄다)
+          const kick = this.fired ? Math.max(0, 1 - (this.stateT - 0.7) * 5) * 4 : 0;
+          const raise = Math.min(1, this.stateT / 0.35);
+          Object.assign(front, {
+            cub: null,
+            hx: R * 0.7,
+            hy: headY - H - 4 - raise * 6 + kick,
+            cx: R * 1.25,
+            cy: torsoY - 4,
+          });
+          P.item = { x: front.hx, y: front.hy, a: -Math.PI / 2 + 0.12 - kick * 0.03 };
         } else if (it === 'megaphone' && using) {
           // 두 손으로 확성기를 입에 대고 앞으로 외친다
           const gx = H * 1.55;
@@ -768,7 +793,7 @@
           P.item = { x: gx, y: gy - 3, a: -0.15 };
           P.fx = 'radio';
         } else {
-          const a = it === 'megaphone' ? 1.25 : 0.05;
+          const a = it === 'megaphone' ? 1.25 : it === 'flare' ? 0.7 : 0.05;
           P.item = { x: front.hx, y: front.hy, a: crouch ? a + 0.2 : a };
         }
       }
@@ -873,6 +898,92 @@
 
       this.drawEffects(ctx, P, hx, headY);
       ctx.restore();
+      this.drawFlares(ctx, groundY);
+    }
+
+    // --- 신호탄 -------------------------------------------------------------------
+    fireFlare(world) {
+      const s = this.scale;
+      const x = this.x + this.dir * DIM.bodyR * 0.7 * s;
+      const h = this.h + this.height + 6 * s;
+      // 창 위쪽 가까이에서 터지도록 속도를 맞춘다
+      const top = Math.max(h + 40, (world.height || 320) - 26);
+      const g = 420;
+      this.flares.push({ kind: 'shot', x, h, vx: this.dir * 18, vy: Math.sqrt(2 * g * (top - h)), g, t: 0, trail: [] });
+    }
+
+    updateFlares(dt) {
+      if (!this.flares.length) return;
+      const next = [];
+      for (const f of this.flares) {
+        f.t += dt;
+        if (f.kind === 'shot') {
+          f.trail.push({ x: f.x, h: f.h });
+          if (f.trail.length > 14) f.trail.shift();
+          f.vy -= f.g * dt;
+          f.x += f.vx * dt;
+          f.h += f.vy * dt;
+          if (f.vy <= 30) {
+            // 꼭대기에서 펑! 불꽃이 사방으로 퍼진다
+            for (let i = 0; i < 22; i++) {
+              const a = (i / 22) * Math.PI * 2 + Math.random() * 0.3;
+              const v = 80 + Math.random() * 70;
+              next.push({ kind: 'spark', x: f.x, h: f.h, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: 0.9 + Math.random() * 0.5 });
+            }
+            next.push({ kind: 'flash', x: f.x, h: f.h, t: 0, life: 0.35 });
+            continue;
+          }
+        } else {
+          if (f.kind === 'spark') {
+            f.vy -= 120 * dt;
+            f.vx *= Math.exp(-1.5 * dt);
+            f.x += f.vx * dt;
+            f.h += f.vy * dt;
+          }
+          if (f.t > f.life) continue;
+        }
+        next.push(f);
+      }
+      this.flares = next;
+    }
+
+    drawFlares(ctx, groundY) {
+      for (const f of this.flares) {
+        const y = groundY - f.h;
+        if (f.kind === 'shot') {
+          // 연기 꼬리 + 빛나는 빨간 불덩이
+          f.trail.forEach((p, i) => {
+            const k = i / f.trail.length;
+            ctx.fillStyle = `rgba(240,235,225,${0.35 * k})`;
+            ctx.beginPath();
+            ctx.arc(p.x, groundY - p.h, 1.5 + k * 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          const g = ctx.createRadialGradient(f.x, y, 0, f.x, y, 13);
+          g.addColorStop(0, 'rgba(255,248,220,1)');
+          g.addColorStop(0.3, 'rgba(255,110,60,.95)');
+          g.addColorStop(1, 'rgba(255,60,40,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(f.x, y, 13, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (f.kind === 'spark') {
+          const a = Math.max(0, 1 - f.t / f.life);
+          ctx.fillStyle = `rgba(255,${150 + Math.round(90 * a)},70,${a})`;
+          ctx.beginPath();
+          ctx.arc(f.x, y, 1.6 + a * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (f.kind === 'flash') {
+          const a = Math.max(0, 1 - f.t / f.life);
+          const g = ctx.createRadialGradient(f.x, y, 0, f.x, y, 34);
+          g.addColorStop(0, `rgba(255,240,200,${0.9 * a})`);
+          g.addColorStop(1, 'rgba(255,120,60,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(f.x, y, 34, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
 
     drawEye(ctx, P, headHex) {

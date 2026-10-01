@@ -166,43 +166,129 @@
         ctx.fill();
       },
     },
-    // 파란 라디오 상자: 스피커 줄무늬, 다이얼, 안테나
+    // 라디오 (레퍼런스 사진): 세로로 선 청록 상자, 왼쪽 위 주황 표시등,
+    // 주황 이퀄라이저 막대가 춤추는 검은 화면, 아래 큰 원형 스피커, 왼쪽 옆 주황 다이얼.
     radio: {
-      grip: { x: 0, y: 0 },
-      rest: { x: 0, y: 10, angle: 0 },
-      draw(ctx) {
-        ctx.strokeStyle = '#8a8d90';
-        ctx.lineWidth = 1.3;
-        ctx.beginPath();
-        ctx.moveTo(10, -9);
-        ctx.lineTo(13.5, -27);
+      grip: { x: -9, y: 6 },
+      rest: { x: 0, y: 13.5, angle: 0 },
+      draw(ctx, t = 0) {
+        // 옆면(두께)과 몸체
+        ctx.fillStyle = '#1D5E52';
+        rrect(ctx, -10, -13, 21.5, 26.5, 3.5);
+        ctx.fill();
+        ctx.fillStyle = matteFill(ctx, '#2E8C79', -13, 13);
+        rrect(ctx, -10, -13, 20, 26.5, 3.5);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.22)';
+        ctx.lineWidth = 0.7;
+        rrect(ctx, -8.6, -11.6, 17.2, 23.7, 2.6);
         ctx.stroke();
-        ctx.fillStyle = '#3a3a3a';
+        // 왼쪽 옆 주황 다이얼
+        ctx.fillStyle = matteFill(ctx, '#E5772A', 0, 8);
         ctx.beginPath();
-        ctx.arc(13.5, -27.5, 1.6, 0, Math.PI * 2);
+        ctx.ellipse(-10.4, 4, 1.8, 3.6, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = matteFill(ctx, '#4E7F98', -10, 10);
-        rrect(ctx, -15, -10, 30, 20, 3.5);
+        // 주황 표시등
+        const glow = ctx.createRadialGradient(-6.6, -9.6, 0, -6.6, -9.6, 3.2);
+        glow.addColorStop(0, 'rgba(255,214,140,1)');
+        glow.addColorStop(0.45, 'rgba(255,150,50,.9)');
+        glow.addColorStop(1, 'rgba(255,150,50,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(-6.6, -9.6, 3.2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = 'rgba(0,0,0,.15)';
-        rrect(ctx, -15, 6.5, 30, 3.5, 2);
+        // 화면 + 춤추는 주황 막대
+        ctx.fillStyle = '#16191d';
+        rrect(ctx, -4.2, -10.8, 11.6, 7.2, 1);
         ctx.fill();
-        ctx.strokeStyle = '#2f5467';
-        ctx.lineWidth = 1.1;
-        for (let i = 0; i < 5; i++) {
-          ctx.beginPath();
-          ctx.moveTo(-11.5, -5.5 + i * 2.6);
-          ctx.lineTo(0.5, -5.5 + i * 2.6);
-          ctx.stroke();
+        ctx.fillStyle = '#F07A28';
+        ctx.fillRect(-3.4, -9.9, 10, 0.5);
+        for (let i = 0; i < 7; i++) {
+          const h = 1.2 + 3.6 * Math.abs(Math.sin(t * (5 + i * 1.3) + i * 1.7));
+          ctx.fillRect(-3.2 + i * 1.45, -4.3 - h, 0.8, h);
         }
-        ctx.fillStyle = '#2c2c2c';
+        // 화면 옆 회색 버튼
+        ctx.fillStyle = '#9aa3a0';
+        ctx.fillRect(8, -10, 1, 1.6);
+        ctx.fillRect(8, -7.6, 1, 1.6);
+        // 큰 원형 스피커
+        ctx.fillStyle = '#1f2b28';
         ctx.beginPath();
-        ctx.arc(7.5, -1, 4.3, 0, Math.PI * 2);
+        ctx.arc(0.3, 5, 6.6, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#E1622B';
+        ctx.save();
         ctx.beginPath();
-        ctx.arc(7.5, -1, 1.6, 0, Math.PI * 2);
+        ctx.arc(0.3, 5, 6, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = '#4a5a55';
+        for (let y = -1.5; y < 12; y += 1.5) {
+          for (let x = -6.5; x < 7; x += 1.5) ctx.fillRect(x + ((y * 2) % 1.5), y, 0.6, 0.6);
+        }
+        ctx.restore();
+      },
+    },
+    // 신호탄 총 (레퍼런스): 굵고 둥근 빨간 총열과 몸통, 짧고 두툼한 손잡이 아래쪽을
+    // 덮은 파란 패널, 뒤 위의 작은 파란 공이, 흰 방아쇠와 빨간 방아쇠 끝, 나사 자국.
+    flare: {
+      scale: 0.75, // 손에 쥐는 권총 크기
+      grip: { x: -6, y: 6 },
+      rest: { x: 0, y: 12.5, angle: 0 },
+      draw(ctx) {
+        const red = '#D23A2C';
+        // 손잡이 (짧고 두툼하게 뒤로 살짝 기울었다)
+        ctx.fillStyle = matteFill(ctx, red, 0, 12);
+        ctx.beginPath();
+        ctx.moveTo(-10.5, 0);
+        ctx.lineTo(-1.5, 0);
+        ctx.quadraticCurveTo(-1, 6, -3, 12);
+        ctx.lineTo(-10.5, 12);
+        ctx.quadraticCurveTo(-12.5, 6, -10.5, 0);
+        ctx.closePath();
         ctx.fill();
+        // 손잡이 아래쪽 파란 패널
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = matteFill(ctx, '#2F5FC8', 4, 12);
+        ctx.fillRect(-13, 4.5, 13, 9);
+        ctx.restore();
+        // 흰 방아쇠 + 빨간 끝
+        ctx.fillStyle = '#f4f2ec';
+        rrect(ctx, -0.6, 0.6, 2.2, 4.6, 1);
+        ctx.fill();
+        ctx.fillStyle = '#E8482E';
+        ctx.beginPath();
+        ctx.moveTo(1.6, 1);
+        ctx.lineTo(4.2, 2.2);
+        ctx.lineTo(1.6, 3.4);
+        ctx.closePath();
+        ctx.fill();
+        // 몸통 + 총열 (같은 굵기로 둥글게 이어진다)
+        ctx.fillStyle = matteFill(ctx, red, -7, 2);
+        rrect(ctx, -11, -7, 30, 9, 4.2);
+        ctx.fill();
+        // 총구: 둥근 끝과 어두운 구멍
+        ctx.fillStyle = '#7a1d16';
+        ctx.beginPath();
+        ctx.ellipse(18.4, -2.5, 1.2, 3.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 총열과 몸통 사이 이음선
+        ctx.strokeStyle = 'rgba(80,15,10,.35)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(1, -6.6);
+        ctx.lineTo(1, 1.6);
+        ctx.stroke();
+        // 작은 파란 공이 (뒤 위)
+        ctx.fillStyle = matteFill(ctx, '#2F5FC8', -10, -6);
+        rrect(ctx, -10.5, -9.2, 4, 3.4, 1.2);
+        ctx.fill();
+        // 나사 자국
+        ctx.fillStyle = '#5a1712';
+        for (const [x, y] of [[-7.5, -3.5], [4, -0.5], [10, -0.5], [-8.5, 2.5]]) {
+          ctx.beginPath();
+          ctx.arc(x, y, 0.55, 0, Math.PI * 2);
+          ctx.fill();
+        }
       },
     },
   };
@@ -233,7 +319,7 @@
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
-    ctx.scale(SIZE, SIZE);
+    ctx.scale(SIZE * (t.scale || 1), SIZE * (t.scale || 1));
     ctx.translate(-t.grip.x, -t.grip.y);
     t.draw(ctx, performance.now() / 1000);
     ctx.restore();
@@ -250,7 +336,8 @@
       softShadow(ctx, item.x, groundY - 1, 11 * SIZE * scale, 0.22 * fade);
     }
     ctx.translate(item.x, groundY - item.h);
-    ctx.scale(scale * SIZE * (item.dir || 1), scale * SIZE);
+    const k = SIZE * (t.scale || 1);
+    ctx.scale(scale * k * (item.dir || 1), scale * k);
     ctx.rotate(t.rest.angle + (item.spin || 0));
     ctx.translate(-t.rest.x, -t.rest.y);
     t.draw(ctx, performance.now() / 1000);
