@@ -156,19 +156,21 @@
   }
 
   // 엉덩방아 / 헤롱헤롱 때의 다리 (사용자 그림 기준): 두 다리 모두 공의 앞쪽(바라보는 쪽)에서
-  // 나와 위로 아치를 그렸다가 바닥으로 거의 수직으로 떨어진다. 엇갈려 놓인다.
-  //  - 바깥 다리(side 1): 공 앞쪽 가장자리에서 나와 크게 넘어가 공 바깥 바닥에 발을 댄다.
-  //  - 안쪽 다리(side -1): 공 가운데쯤에서 나와 작게 넘어가 공 앞쪽 아래에 발을 댄다.
+  // 나와 위로 아치를 그렸다가 바닥으로 거의 수직으로 떨어진다.
+  // 실제로 공에 같은 길이의 줄 두 개를 붙여 구부린 것처럼, 두 다리는 **똑같은 곡선**을
+  // 옆으로만 옮겨 놓은 것이다(그래서 길이가 같다). 바깥 다리는 공 앞 표면에서,
+  // 안쪽 다리는 그보다 공 안쪽에서 나와 공 앞쪽 아래로 떨어진다.
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
-    if (side > 0) {
-      const hip = { x: R * 0.75, y: bodyY - R * 0.4 };
-      const ankle = { x: R * 1.6, y: -4.6 };
-      return { hip, c1: { x: R * 1.0, y: bodyY - R * 1.05 }, c2: { x: R * 1.6, y: bodyY - R * 0.9 }, ankle };
-    }
-    const hip = { x: -R * 0.3, y: bodyY - R * 0.25 };
-    const ankle = { x: R * 0.35, y: -4.6 };
-    return { hip, c1: { x: -R * 0.1, y: bodyY - R * 0.85 }, c2: { x: R * 0.35, y: bodyY - R * 0.75 }, ankle };
+    const hipY = bodyY + R * 0.15;
+    const hipX = Math.sqrt(R * R - (R * 0.15) ** 2) - (side > 0 ? 0 : R * 0.5);
+    const dropY = -4.6; // 발은 바닥
+    return {
+      hip: { x: hipX, y: hipY },
+      c1: { x: hipX + R * 0.2, y: hipY - R * 0.8 },
+      c2: { x: hipX + R * 0.75, y: hipY - R * 0.75 },
+      ankle: { x: hipX + R * 0.8, y: dropY },
+    };
   }
 
   function lerpPose(a, b, k) {
@@ -835,8 +837,9 @@
           // 반대쪽 팔은 공 옆으로 느슨하게 늘어뜨린다. (다리를 팔보다 나중에 그린다)
           const loose = Math.sin(t * 5 + side) * 2;
           if (side > 0) {
-            hand = { x: R * 1.15 + loose * 0.5, y: -handR - 0.5 };
-            ctrl = { x: R * 1.3, y: torsoY + T * 1.1 };
+            // 넘어진 사람이 몸 바로 옆을 짚듯, 공 가장자리 가까이에 손을 댄다
+            hand = { x: R * 0.8 + loose * 0.3, y: -handR - 0.5 };
+            ctrl = { x: R * 1.2, y: torsoY + T * 1.0 };
           } else {
             hand = { x: -R * 0.95 + loose, y: -handR - 0.5 };
             ctrl = { x: -R * 1.1, y: torsoY + T * 1.4 };
