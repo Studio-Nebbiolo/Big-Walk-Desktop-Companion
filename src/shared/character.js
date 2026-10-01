@@ -157,12 +157,12 @@
 
   // 엉덩방아 / 헤롱헤롱 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
   // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
+  // (사용자 피드백) 한쪽으로 오므리지 않고 두 다리가 양옆으로 벌어지도록: side 가 다리 방향.
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
-    const off = side > 0 ? 0 : -5;
-    const hip = { x: R * 0.5 + off, y: bodyY + R * 0.5 };
-    const knee = { x: R + 13 + off, y: bodyY + R * 0.2 };
-    const ankle = { x: R + 17 + off, y: -4.6 };
+    const hip = { x: side * R * 0.35, y: bodyY + R * 0.55 };
+    const knee = { x: side * (R + 8), y: bodyY + R * 0.25 };
+    const ankle = { x: side * (R + 15), y: -4.6 };
     // 곡선이 무릎을 지나가도록 조절점을 잡는다
     const ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
     return { hip, ctrl, ankle };
@@ -721,14 +721,14 @@
           hip.y = tidy.hip.y;
           ankle = tidy.ankle;
           ctrl = tidy.ctrl;
-          fa = 0;
+          fa = side > 0 ? 0 : Math.PI; // 발끝은 각자 바깥쪽
           if (st === 'bump') {
-            // 엉덩방아: 쿵 하는 순간 두 다리가 앞으로 번쩍 들렸다가 가지런히 내려온다
-            const upA = { x: tidy.ankle.x - 2, y: bodyY - R * 0.4 };
-            const upC = { x: tidy.hip.x + 8, y: bodyY + R * 0.2 };
+            // 엉덩방아: 쿵 하는 순간 두 다리가 양옆으로 번쩍 들렸다가 벌어진 채 내려온다
+            const upA = { x: tidy.ankle.x - side * 2, y: bodyY - R * 0.4 };
+            const upC = { x: tidy.hip.x + side * 8, y: bodyY + R * 0.2 };
             ankle = { x: upA.x + (ankle.x - upA.x) * bumpK, y: upA.y + (ankle.y - upA.y) * bumpK };
             ctrl = { x: upC.x + (ctrl.x - upC.x) * bumpK, y: upC.y + (ctrl.y - upC.y) * bumpK };
-            fa = -1.3 * (1 - bumpK);
+            fa = side > 0 ? -1.3 * (1 - bumpK) : Math.PI + 1.3 * (1 - bumpK);
           }
           P.legsFront = true;
         } else if (crouch) {
@@ -1174,9 +1174,9 @@
       ctx.lineCap = 'round';
       if (P.spiral > 0.5) {
         // 헤롱헤롱: 빙글빙글 도는 소용돌이 눈
-        const turns = 2.6;
+        const turns = 1.6; // 덜 빽빽한 달팽이
         const rot = -this.t * 8;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.9;
         ctx.beginPath();
         for (let i = 0; i <= 60; i++) {
           const k = i / 60;
