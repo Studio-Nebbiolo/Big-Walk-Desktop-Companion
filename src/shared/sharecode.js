@@ -1,11 +1,13 @@
 // 친구 공유 코드: 이름 + 세 부위 색을 짧은 글자 코드로 바꾸고 되돌린다.
 //
-// 형식: "MS1-" + base64url( [색 머리, 색 몸통, 색 다리, 이름 UTF-8 바이트..., 검사값] )
+// 형식: "BW1-" + base64url( [색 머리, 색 몸통, 색 다리, 이름 UTF-8 바이트..., 검사값] )
+//   - 예전 이름 시절의 "MS1-" 코드도 내용이 같으므로 그대로 읽는다.
 //   - 색은 팔레트 순번(0~20). 순번이 코드에 박히므로 palette.js 의 색 순서는 바꾸면 안 된다.
 //   - 검사값은 앞 바이트들로 계산한 1바이트. 오타가 난 코드는 거절한다.
 (function (root) {
   const Palette = root.Palette || (typeof require === 'function' ? require('./palette') : null);
-  const PREFIX = 'MS1-';
+  const PREFIX = 'BW1-';
+  const LEGACY_PREFIXES = ['MS1-'];
   const MAX_NAME = 20;
 
   function checksum(bytes) {
@@ -38,8 +40,9 @@
   function decode(text) {
     const raw = String(text || '').replace(/\s+/g, '');
     if (!raw) return { error: '코드를 입력해 주세요.' };
-    if (raw.slice(0, PREFIX.length).toUpperCase() !== PREFIX) return { error: '친구 코드가 아니에요. "MS1-" 로 시작해야 해요.' };
-    const payload = raw.slice(PREFIX.length);
+    const head = [PREFIX, ...LEGACY_PREFIXES].find((p) => raw.slice(0, p.length).toUpperCase() === p);
+    if (!head) return { error: `친구 코드가 아니에요. "${PREFIX}" 로 시작해야 해요.` };
+    const payload = raw.slice(head.length);
     if (!payload) return { error: '코드가 너무 짧아요. 끝까지 복사했는지 확인해 주세요.' };
     if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { error: '코드에 쓸 수 없는 글자가 들어 있어요.' };
     let bytes;

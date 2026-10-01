@@ -1,6 +1,6 @@
 {
-  "name": "magic-school-companion",
-  "productName": "Magic School Companion",
+  "name": "big-walk-companion",
+  "productName": "Big Walk Companion",
   "version": "0.1.0",
   "description": "작업표시줄 위를 돌아다니는 동글동글 데스크탑 친구들",
   "main": "src/main.js",
@@ -16,7 +16,7 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.studionebbiolo.magicschool.companion",
+    "appId": "com.studionebbiolo.bigwalk.companion",
     "files": ["src/**/*", "assets/**/*", "package.json"],
     "win": { "target": ["nsis", "portable"], "icon": "assets/icon.png" },
     "mac": { "target": "dmg", "icon": "assets/icon.png", "category": "public.app-category.entertainment" },

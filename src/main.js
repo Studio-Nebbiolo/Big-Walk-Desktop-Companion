@@ -68,7 +68,22 @@ function sanitize(input) {
   };
 }
 
+// 예전 이름(Magic School Companion)으로 저장된 설정이 있으면 처음 한 번 옮겨 온다.
+function migrateOldSettings() {
+  if (fs.existsSync(settingsPath())) return;
+  for (const oldName of ['Magic School Companion', 'magic-school-companion']) {
+    const oldPath = path.join(app.getPath('appData'), oldName, 'settings.json');
+    try {
+      if (!fs.existsSync(oldPath)) continue;
+      fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
+      fs.copyFileSync(oldPath, settingsPath());
+      return;
+    } catch {}
+  }
+}
+
 function loadSettings() {
+  migrateOldSettings();
   try {
     return sanitize(JSON.parse(fs.readFileSync(settingsPath(), 'utf8')));
   } catch {
@@ -175,7 +190,7 @@ function openSettings(charId) {
     height: 740,
     minWidth: 760,
     minHeight: 560,
-    title: 'Magic School 친구들',
+    title: 'Big Walk Companion · 친구들 꾸미기',
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     autoHideMenuBar: true,
     backgroundColor: '#1d1f24',
@@ -236,7 +251,7 @@ function addRandomCharacter() {
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'tray.png'));
   tray = new Tray(icon);
-  tray.setToolTip('Magic School 친구들');
+  tray.setToolTip('Big Walk Companion');
   tray.on('click', () => openSettings());
   refreshTrayMenu();
 }
@@ -295,7 +310,7 @@ if (!app.requestSingleInstanceLock()) {
     settings = loadSettings();
     createCompanion();
     createTray();
-    if (process.env.MAGIC_SCHOOL_OPEN_SETTINGS) openSettings();
+    if (process.env.BIG_WALK_OPEN_SETTINGS) openSettings();
   });
 
   // 설정 창을 닫아도 트레이에 남아 있는다.
