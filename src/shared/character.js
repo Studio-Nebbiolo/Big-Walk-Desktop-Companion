@@ -132,15 +132,18 @@
     return { x: x * c - y * s, y: x * s + y * c };
   }
 
-  // 앉았을 때의 다리 (아빠다리): 큰 공 아래에서 나온 다리가 무릎을 양옆 바닥으로
-  // 벌렸다가, 정강이가 공 앞에서 X 자로 엇갈리고 발끝은 반대쪽 무릎 너머로 삐져나온다.
+  // 앉았을 때의 다리 (아빠다리, 레퍼런스): 큰 공이 엇갈린 다리 위에 살짝 얹혀 있고,
+  // 두 다리는 공 아래 가운데에서 X 자로 엇갈린 뒤 공보다 훨씬 넓게 양옆으로 길게 뻗어
+  // 발이 공 바깥 바닥에 닿는다.
   function crossLeg(side, bodyY) {
     const R = DIM.bodyR;
-    const hip = { x: side * R * 0.45, y: bodyY + R * 0.55 };
-    const ankle = { x: -side * R * 0.72, y: -6.5 };
-    const c1 = { x: side * (R + 10), y: hip.y - 3 }; // 무릎이 양옆으로 살짝 들린 채 벌어진다
-    const c2 = { x: side * (R + 12), y: -18 }; // 무릎을 돌아 정강이가 안쪽으로
-    return { hip, c1, c2, ankle };
+    const hip = { x: side * R * 0.3, y: bodyY + R * 0.85 };
+    if (side > 0) {
+      // 앞쪽 다리: 공 아래로 내려와 엇갈린 뒤 반대쪽 바닥 멀리 발을 댄다
+      return { hip, c1: { x: R * 0.1, y: -2 }, c2: { x: -R * 0.6, y: -3 }, ankle: { x: -(R + 12), y: -4.8 } };
+    }
+    // 뒤쪽 다리: 엇갈린 뒤 반대쪽으로 비스듬히 올라가 발끝이 살짝 들린다
+    return { hip, c1: { x: -R * 0.1, y: -4 }, c2: { x: R * 0.7, y: -6 }, ankle: { x: R + 14, y: -12 } };
   }
 
   // 엉덩방아 / 헤롱헤롱 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
@@ -563,7 +566,7 @@
       }
 
       if (sitting) {
-        P.bodyY = -R * 0.97; // 큰 공이 바닥에 철푸덕
+        P.bodyY = -R - 10; // 큰 공이 엇갈린 다리 위에 철푸덕 얹힌다
         P.face = 0.55;
         P.legsOnTop = 1; // 엇갈린 다리가 팔보다 앞에 보인다
       }
@@ -628,7 +631,7 @@
           hip.y = leg.hip.y;
           ankle = leg.ankle;
           cubic = [leg.c1, leg.c2];
-          fa = side > 0 ? Math.PI + 0.35 : -0.35; // 발끝이 반대쪽 위로 삐져나온다
+          fa = side > 0 ? Math.PI + 0.1 : -0.45; // 발끝은 바깥쪽 (들린 발은 비스듬히 위로)
           P.legsFront = true;
         } else if (onButt) {
           // 엉덩방아 / 헤롱헤롱: 두 다리를 가지런히 앞으로: 큰 공을 바닥에 대고 두 다리를 가지런히 앞으로 모은다.
@@ -713,7 +716,7 @@
         } else if (sitting) {
           // 두 팔을 몸 양옆으로 축 늘어뜨려 무릎 바깥 바닥에 손을 내려놓는다
           const sway = Math.sin(t * 1.6 + side) * 0.6;
-          hand = { x: side * (R + 16) + sway, y: -handR - 0.5 };
+          hand = { x: side * (R + 5) + sway, y: -handR - 6 };
           ctrl = { x: side * R * 1.35, y: torsoY + T * 0.8 };
         } else if (sitting || st === 'dizzy') {
           // 두 팔을 공 옆으로 편안히 늘어뜨려 손을 바닥 가까이에 내려놓는다
