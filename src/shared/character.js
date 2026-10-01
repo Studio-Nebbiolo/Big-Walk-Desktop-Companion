@@ -162,14 +162,21 @@
   // 안쪽 다리는 그보다 공 안쪽에서 나와 공 앞쪽 아래로 떨어진다.
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
-    const hipY = bodyY + R * 0.15;
-    const hipX = Math.sqrt(R * R - (R * 0.15) ** 2) - (side > 0 ? 0 : R * 0.5);
     const dropY = -4.6; // 발은 바닥
+    if (side > 0) {
+      // 바깥(앞) 다리: 안쪽 다리와 길이가 같도록 아치를 낮추고 발을 몸 쪽으로 당긴다
+      return {
+        hip: { x: R * 0.75, y: bodyY - R * 0.4 },
+        c1: { x: R * 0.98, y: bodyY - R * 0.88 },
+        c2: { x: R * 1.46, y: bodyY - R * 0.73 },
+        ankle: { x: R * 1.46, y: dropY },
+      };
+    }
     return {
-      hip: { x: hipX, y: hipY },
-      c1: { x: hipX + R * 0.2, y: hipY - R * 0.8 },
-      c2: { x: hipX + R * 0.75, y: hipY - R * 0.75 },
-      ankle: { x: hipX + R * 0.8, y: dropY },
+      hip: { x: -R * 0.3, y: bodyY - R * 0.25 },
+      c1: { x: -R * 0.1, y: bodyY - R * 0.85 },
+      c2: { x: R * 0.35, y: bodyY - R * 0.75 },
+      ankle: { x: R * 0.35, y: dropY },
     };
   }
 
@@ -833,13 +840,14 @@
           hand = { x: side * (R + 4) + sway, y: -handR - 1 };
           ctrl = { x: side * R * 1.35, y: torsoY + T * 0.8 };
         } else if (st === 'dizzy') {
-          // 헤롱헤롱: 다리 쪽(앞쪽) 팔은 아치 다리 뒤로 넘어가 바닥을 짚고,
-          // 반대쪽 팔은 공 옆으로 느슨하게 늘어뜨린다. (다리를 팔보다 나중에 그린다)
+          // 헤롱헤롱: 다리 쪽(앞쪽) 팔은 몸 뒤로 넘어가 공 바로 옆 바닥을 짚고,
+          // 반대쪽 팔은 공 옆으로 느슨하게 늘어뜨린다.
           const loose = Math.sin(t * 5 + side) * 2;
           if (side > 0) {
             // 넘어진 사람이 몸 바로 옆을 짚듯, 공 가장자리 가까이에 손을 댄다
             hand = { x: R * 0.8 + loose * 0.3, y: -handR - 0.5 };
             ctrl = { x: R * 1.2, y: torsoY + T * 1.0 };
+            P.frontArmBehind = 1; // 몸(공) 뒤에 그린다
           } else {
             hand = { x: -R * 0.95 + loose, y: -handR - 0.5 };
             ctrl = { x: -R * 1.1, y: torsoY + T * 1.4 };
