@@ -1031,15 +1031,19 @@
           ctx.clip();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          // 1) 붙은 자리: 원기둥 끝 바로 바깥(빛 반대쪽)에 얇은 초승달 그늘
-          const t0 = pt(0.05);
-          const tl = Math.hypot(t0.x - l.hx, t0.y - l.hy) || 1;
-          const bx = (l.hx - t0.x) / tl; // 다리 끝이 향하는 방향 (축의 반대)
-          const by = (l.hy - t0.y) / tl;
-          ctx.filter = 'blur(0.7px)';
-          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+          // 1) 붙은 자리: 원기둥 끝 테두리에 바짝 붙어 바깥으로 금방 사라지는 부드러운 그늘
+          //    (모양을 옮긴 복사본이 아니라 접촉면 둘레가 오목하게 어두워지는 것. 빛 반대쪽이 조금 더 넓다)
+          const capR = legW * 0.5;
+          const ax0 = l.hx + 0.35;
+          const ay0 = l.hy + 0.5;
+          const ao = ctx.createRadialGradient(ax0, ay0, capR * 0.85, ax0, ay0, capR + 2.6);
+          ao.addColorStop(0, 'rgba(0,0,0,0.26)');
+          ao.addColorStop(0.35, 'rgba(0,0,0,0.12)');
+          ao.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.filter = 'none';
+          ctx.fillStyle = ao;
           ctx.beginPath();
-          ctx.arc(l.hx + bx * 0.9 + 0.4, l.hy + by * 0.9 + 0.6, legW * 0.5, 0, Math.PI * 2);
+          ctx.arc(ax0, ay0, capR + 2.6, 0, Math.PI * 2);
           ctx.fill();
           // 2) 뿌리에서 무릎 전까지만: 붙은 자리에서 틈 없이 시작해 조금씩 벌어지며 사라진다
           const kEnd = 0.38;
