@@ -184,7 +184,7 @@
     walk: [3, 9],
     sit: [5, 12],
     wave: [1.4, 2.2],
-    cheer: [1.1, 1.1],
+    cheer: [0.8, 0.8],
     look: [1, 2],
     use: [1.8, 3.2],
     bump: [0.55, 0.55],
@@ -260,9 +260,12 @@
     }
 
     // 오뚜기를 클릭하면 다 같이 폴짝 뛰며 손을 들었다 내렸다 한다
+    // 연타해도 정신없지 않게: 한 번 "야호!" 하고 나면 잠깐은 다시 뛰지 않고, 매번 다 같이 뛰지도 않는다.
     celebrate() {
       if (['drag', 'air', 'bump', 'dizzy', 'pickup', 'drop'].includes(this.state) || this.h > 0.5) return;
-      this.vy = rand(330, 430);
+      if (this.t < (this.cheerReadyAt || 0) || Math.random() < 0.35) return;
+      this.cheerReadyAt = this.t + rand(1.8, 2.6);
+      this.vy = rand(210, 260); // 낮고 가볍게 폴짝
       this.vx = 0;
       this.setState('air', 99, 0.1);
       this.afterLand = 'cheer';
@@ -523,9 +526,9 @@
           this.dir = -1;
         }
         if (world.others && this.greetCooldown <= 0) this.tryGreet(world.others);
-      } else if (this.state !== 'seek') {
+      } else if (this.state !== 'seek' && this.state !== 'goto') {
         this.x = clamp(this.x, minX, maxX);
-        // 멈추면 다리를 모은다
+        // 멈추면 다리를 모은다 (걸어가는 중인 seek/goto 는 제외: 안 그러면 다리가 멈춘 채 미끄러진다)
         const target = Math.round(this.phase / Math.PI) * Math.PI;
         this.phase += (target - this.phase) * Math.min(1, dt * 8);
       }
@@ -632,9 +635,9 @@
         P.headDY = Math.abs(Math.sin(ph - 0.6)) * 1.5;
         P.headTilt = -Math.sin(ph - 0.9) * 0.06;
       } else if (st === 'cheer') {
-        bob = -Math.abs(Math.sin(this.stateT * 12)) * 3;
+        bob = -Math.max(0, Math.sin((this.stateT / this.stateDur) * Math.PI)) * 2;
       } else if (st === 'marvel') {
-        bob = -Math.abs(Math.sin(t * 4)) * 1.5; // 들썩들썩
+        bob = -Math.abs(Math.sin(t * 3)) * 0.8; // 살짝 들썩
         P.headTilt = this.gesture === 'scratch' ? 0.18 : Math.sin(t * 1.3) * 0.12;
       } else if (sleeping) {
         bob = Math.sin(t * 1.4) * 1.2; // 느리고 깊은 숨
@@ -775,12 +778,12 @@
           hand = { x: side * (T + 8) + Math.sin(t * 6 + side) * 3, y: headY - H - 10 };
           ctrl = { x: side * (T + 16), y: torsoY - 4 };
         } else if (st === 'cheer') {
-          // 손을 번쩍 들었다 내렸다
-          const up = 0.5 + 0.5 * Math.sin(this.stateT * 11 + (side > 0 ? 0 : 0.6));
+          // 착지한 뒤 번쩍 든 두 손을 천천히 내린다 ("야호!" 한 번)
+          const up = 1 - ease(clamp(this.stateT / this.stateDur, 0, 1));
           hand = { x: side * R * (0.95 + 0.15 * (1 - up)), y: torsoY + 2 - up * (torsoY + 2 - (headY - H - 6)) };
           ctrl = { x: side * R * 1.35, y: torsoY + 2 };
         } else if (cheering) {
-          hand = { x: side * R * 0.95, y: headY - H - 4 + Math.sin(t * 14 + side) * 3 };
+          hand = { x: side * R * 0.95, y: headY - H - 4 };
           ctrl = { x: side * R * 1.35, y: torsoY + 2 };
         } else if (st === 'marvel') {
           // 오뚜기를 보며 이것저것 손짓한다

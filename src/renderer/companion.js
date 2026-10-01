@@ -88,8 +88,8 @@
 
   function updateHover(x, y) {
     mouse = { x, y };
-    hover = pick(x, y);
-    const onDaruma = !hover && overDaruma(x, y);
+    const onDaruma = overDaruma(x, y);
+    hover = onDaruma ? null : pick(x, y);
     setIgnore(!hover && !onDaruma);
     canvas.style.cursor = hover ? 'grab' : onDaruma ? 'pointer' : 'default';
   }
@@ -137,7 +137,8 @@
 
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    if (overDaruma(e.clientX, e.clientY) && !pick(e.clientX, e.clientY)) {
+    // 오뚜기는 작아서 앞을 지나가는 친구에 가려지기 쉬우니, 오뚜기 위 클릭을 먼저 받는다
+    if (overDaruma(e.clientX, e.clientY)) {
       // 오뚜기 클릭: 휘청이고, 모두 폴짝 뛰며 손을 들었다 내렸다 한다. 20번이면 수집!
       const got = daruma.hit(e.clientX);
       for (const c of chars) c.celebrate();
@@ -254,7 +255,7 @@
     const sig = chars.map((c) => c.cfg.id).join(',') + '|' + Math.round(W) + '|' + s;
     if (sig === slotSignature) return;
     slotSignature = sig;
-    const first = 70 * s;
+    const first = 58 * s;
     const gap = 68 * s;
     const lo = 50 * s;
     const hi = W - 50 * s;

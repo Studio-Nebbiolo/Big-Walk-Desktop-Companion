@@ -7,8 +7,8 @@
   const CLICKS_TO_COLLECT = 20;
 
   // 로컬 치수 (size = 1 기준)
-  const BODY_R = 28;
-  const HEAD_R = 17.5;
+  const BODY_R = 14; // 라디오만 한 크기
+  const HEAD_R = 8.75;
   const BODY_Y = -BODY_R;
   const HEAD_Y = -BODY_R * 2 - HEAD_R * 0.55;
   const HEIGHT = -HEAD_Y + HEAD_R;
