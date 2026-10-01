@@ -1,7 +1,7 @@
 {
   "name": "big-walk-companion",
   "productName": "Big Walk Companion",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "작업표시줄 위를 돌아다니는 동글동글 데스크탑 친구들",
   "main": "src/main.js",
   "private": true,
