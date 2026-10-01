@@ -1013,23 +1013,50 @@
 
       const drawLeg = (l, i) => {
         const hex = i === 0 ? tone(col.legs, -0.1) : col.legs;
-        // 공 앞을 지나는 다리는 같은 색 공 위에 부드러운 그림자를 드리워 떠 보이게 한다
-        // (빛이 왼쪽 위라서 그림자는 오른쪽 아래로, 공 안에만 진다)
+        // 공 앞을 지나는 다리의 그림자 (빛은 왼쪽 위, 그림자는 공 안에만 진다).
+        // 다리 뿌리는 공 표면에 딱 붙은 원기둥이라, 그림자는 붙은 자리에서 틈 없이 시작해
+        // 끝 둘레를 초승달처럼 감싸고, 다리가 공에서 떠오를수록 점점 벌어지며 옅고 흐려진다.
         const c2 = { x: l.c2x, y: l.c2y };
         if (P.legsFront) {
+          const pt = (k) => {
+            const u = 1 - k;
+            return {
+              x: u * u * u * l.hx + 3 * u * u * k * l.cx + 3 * u * k * k * c2.x + k * k * k * l.ax,
+              y: u * u * u * l.hy + 3 * u * u * k * l.cy + 3 * u * k * k * c2.y + k * k * k * l.ay,
+            };
+          };
           ctx.save();
           ctx.beginPath();
           ctx.arc(0, bodyY, R, 0, Math.PI * 2);
           ctx.clip();
-          ctx.filter = 'blur(1.6px)';
-          ctx.translate(1.6, 2.2);
           ctx.lineCap = 'round';
-          ctx.strokeStyle = 'rgba(0,0,0,0.22)';
-          ctx.lineWidth = legW + 1;
+          ctx.lineJoin = 'round';
+          // 1) 붙은 자리: 원기둥 끝 둘레에 바짝 붙은 진한 그늘
+          const t0 = pt(0.06);
+          const ang = Math.atan2(t0.y - l.hy, t0.x - l.hx);
+          ctx.filter = 'blur(0.8px)';
+          ctx.fillStyle = 'rgba(0,0,0,0.34)';
           ctx.beginPath();
-          ctx.moveTo(l.hx, l.hy);
-          ctx.bezierCurveTo(l.cx, l.cy, c2.x, c2.y, l.ax, l.ay);
-          ctx.stroke();
+          ctx.ellipse(l.hx + 0.7, l.hy + 0.9, legW * 0.45, legW * 0.72, ang, 0, Math.PI * 2);
+          ctx.fill();
+          // 2) 떠오르는 부분: 뿌리에서 0 으로 시작해 멀어질수록 오른쪽 아래로 벌어진다
+          ctx.filter = 'blur(1.4px)';
+          const N = 18;
+          for (let i = 0; i < N; i++) {
+            const k0 = i / N;
+            const k1 = (i + 1) / N;
+            const lift = Math.min(1, (k0 + k1) * 1.4); // 공 표면에서 떨어진 정도
+            const ox = 1.8 * lift;
+            const oy = 2.5 * lift;
+            const p0 = pt(k0);
+            const p1 = pt(k1);
+            ctx.strokeStyle = `rgba(0,0,0,${0.3 - 0.12 * lift})`;
+            ctx.lineWidth = legW * (0.9 + 0.3 * lift);
+            ctx.beginPath();
+            ctx.moveTo(p0.x + ox, p0.y + oy);
+            ctx.lineTo(p1.x + ox, p1.y + oy);
+            ctx.stroke();
+          }
           ctx.restore();
         }
         noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex, c2);
