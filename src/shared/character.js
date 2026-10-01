@@ -155,18 +155,20 @@
     };
   }
 
-  // 엉덩방아 / 헤롱헤롱 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
-  // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
-  // (사용자 피드백) 한쪽으로 오므리지 않고, 쩍벌도 아니게: 가운데에서 적당히 벌린다. side 가 다리 방향.
+  // 엉덩방아 / 헤롱헤롱 때의 다리 (사용자 그림 기준): 두 다리 모두 공의 앞쪽(바라보는 쪽)에서
+  // 나와 위로 아치를 그렸다가 바닥으로 거의 수직으로 떨어진다. 엇갈려 놓인다.
+  //  - 바깥 다리(side 1): 공 앞쪽 가장자리에서 나와 크게 넘어가 공 바깥 바닥에 발을 댄다.
+  //  - 안쪽 다리(side -1): 공 가운데쯤에서 나와 작게 넘어가 공 앞쪽 아래에 발을 댄다.
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
-    // 공 아래 가운데에서 나와 적당히 V 자로 벌린다 (발은 공 가장자리 조금 바깥)
-    const hip = { x: side * R * 0.2, y: bodyY + R * 0.7 };
-    const knee = { x: side * R * 0.85, y: bodyY + R * 0.3 };
-    const ankle = { x: side * R * 1.3, y: -4.6 };
-    // 곡선이 무릎을 지나가도록 조절점을 잡는다
-    const ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
-    return { hip, ctrl, ankle };
+    if (side > 0) {
+      const hip = { x: R * 0.75, y: bodyY - R * 0.4 };
+      const ankle = { x: R * 1.6, y: -4.6 };
+      return { hip, c1: { x: R * 1.0, y: bodyY - R * 1.05 }, c2: { x: R * 1.6, y: bodyY - R * 0.9 }, ankle };
+    }
+    const hip = { x: -R * 0.3, y: bodyY - R * 0.25 };
+    const ankle = { x: R * 0.35, y: -4.6 };
+    return { hip, c1: { x: -R * 0.1, y: bodyY - R * 0.85 }, c2: { x: R * 0.35, y: bodyY - R * 0.75 }, ankle };
   }
 
   function lerpPose(a, b, k) {
@@ -720,17 +722,17 @@
           const tidy = tidyLeg(side, bodyY);
           hip.x = tidy.hip.x;
           hip.y = tidy.hip.y;
-          ankle = tidy.ankle;
-          ctrl = tidy.ctrl;
-          fa = side > 0 ? 0 : Math.PI; // 발끝은 각자 바깥쪽
+          ankle = { ...tidy.ankle };
+          let c2 = { ...tidy.c2 };
+          fa = 0; // 발끝은 바라보는 쪽
           if (st === 'bump') {
-            // 엉덩방아: 쿵 하는 순간 두 다리가 양옆으로 번쩍 들렸다가 벌어진 채 내려온다
-            const upA = { x: tidy.ankle.x - side * 2, y: bodyY - R * 0.4 };
-            const upC = { x: tidy.hip.x + side * 8, y: bodyY + R * 0.2 };
-            ankle = { x: upA.x + (ankle.x - upA.x) * bumpK, y: upA.y + (ankle.y - upA.y) * bumpK };
-            ctrl = { x: upC.x + (ctrl.x - upC.x) * bumpK, y: upC.y + (ctrl.y - upC.y) * bumpK };
-            fa = side > 0 ? -1.3 * (1 - bumpK) : Math.PI + 1.3 * (1 - bumpK);
+            // 엉덩방아: 쿵 하는 순간 발이 앞으로 번쩍 들렸다가 아치 모양으로 내려온다
+            const lift = (1 - bumpK) * R * 1.2;
+            ankle = { x: ankle.x + (1 - bumpK) * R * 0.4, y: ankle.y - lift };
+            c2 = { x: c2.x + (1 - bumpK) * R * 0.5, y: c2.y - lift * 0.4 };
+            fa = -1.3 * (1 - bumpK);
           }
+          cubic = [tidy.c1, c2];
           P.legsFront = true;
         } else if (crouch) {
           ankle = { x: hip.x, y: -4.6 };
