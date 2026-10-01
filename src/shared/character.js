@@ -831,17 +831,17 @@
           hand = { x: side * (R + 4) + sway, y: -handR - 1 };
           ctrl = { x: side * R * 1.35, y: torsoY + T * 0.8 };
         } else if (st === 'dizzy') {
-          // 헤롱헤롱: 뒤쪽 팔은 몸 뒤로 뻗어 바닥을 짚어 버티고,
-          // 앞쪽 팔은 무릎 사이 앞으로 느슨하게 늘어뜨린다.
+          // 헤롱헤롱: 다리 쪽(앞쪽) 팔은 아치 다리 뒤로 넘어가 바닥을 짚고,
+          // 반대쪽 팔은 공 옆으로 느슨하게 늘어뜨린다. (다리를 팔보다 나중에 그린다)
           const loose = Math.sin(t * 5 + side) * 2;
-          if (side < 0) {
-            hand = { x: -(R + 18) + loose * 0.5, y: -handR - 0.5 };
-            ctrl = { x: -(R + 4), y: torsoY + T * 0.6 };
-            P.backArmBehind = 1;
+          if (side > 0) {
+            hand = { x: R * 1.15 + loose * 0.5, y: -handR - 0.5 };
+            ctrl = { x: R * 1.3, y: torsoY + T * 1.1 };
           } else {
-            hand = { x: R * 0.9 + loose, y: bodyY + R * 0.15 };
-            ctrl = { x: R * 1.05, y: torsoY + T * 1.3 };
+            hand = { x: -R * 0.95 + loose, y: -handR - 0.5 };
+            ctrl = { x: -R * 1.1, y: torsoY + T * 1.4 };
           }
+          P.legsOnTop = 1;
         } else if (crouch && side > 0) {
           // 바닥의 물건을 향해 손을 뻗는다
           hand = unrotate(R * 0.95 + 2, -7, P.tilt);
