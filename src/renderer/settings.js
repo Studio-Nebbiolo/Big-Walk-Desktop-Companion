@@ -158,7 +158,7 @@
     const id = `c${Date.now()}`;
     settings.characters.push({
       id,
-      name: `친구 ${settings.characters.length + 1}`,
+      name: `Friend ${settings.characters.length + 1}`,
       colors: randomColors(),
     });
     selectedId = id;
@@ -171,9 +171,9 @@
   let copiedTimer = null;
   $('share-copy').addEventListener('click', () => {
     api.copyText($('share-code').value);
-    $('share-copy').textContent = '복사됨 ✓';
+    $('share-copy').textContent = 'Copied ✓';
     clearTimeout(copiedTimer);
-    copiedTimer = setTimeout(() => ($('share-copy').textContent = '복사'), 1500);
+    copiedTimer = setTimeout(() => ($('share-copy').textContent = 'Copy'), 1500);
   });
   $('share-code').addEventListener('focus', (e) => e.target.select());
 
@@ -203,7 +203,7 @@
     if (e.key === 'Escape') toggleImport(false);
   });
   $('import-add').addEventListener('click', () => {
-    if (settings.characters.length >= 20) return importMsg('친구는 20명까지만 함께할 수 있어요.', 'error');
+    if (settings.characters.length >= 20) return importMsg('You can have up to 20 friends.', 'error');
     const r = ShareCode.decode($('import-code').value);
     if (r.error) return importMsg(r.error, 'error');
     const id = `c${Date.now()}`;
@@ -284,7 +284,7 @@
     if (!accel) {
       const span = document.createElement('span');
       span.className = 'off';
-      span.textContent = '단축키를 쓰지 않아요';
+      span.textContent = 'No shortcut set';
       box.append(span);
       return;
     }
@@ -307,16 +307,16 @@
   };
   async function loadHotkey() {
     capturing = false;
-    $('hotkey-change').textContent = '바꾸기';
+    $('hotkey-change').textContent = 'Change';
     const st = await api.getHotkey();
     showKeys(st.accel);
-    hotkeyMsg(st.accel && !st.active ? '이 단축키는 지금 다른 프로그램이 쓰고 있어서 동작하지 않아요. 다른 조합으로 바꿔 주세요.' : '', st.accel && !st.active ? 'error' : '');
+    hotkeyMsg(st.accel && !st.active ? 'Another program is using this shortcut right now, so it won\'t work. Please choose a different combination.' : '', st.accel && !st.active ? 'error' : '');
   }
   async function applyHotkey(accel) {
     const r = await api.setHotkey(accel);
     if (r.ok) {
       showKeys(r.accel);
-      hotkeyMsg(r.accel ? '저장했어요! 지금 바로 눌러 보세요.' : '숨기기 단축키를 껐어요.', 'ok');
+      hotkeyMsg(r.accel ? 'Saved! Try pressing it now.' : 'The hide shortcut is off.', 'ok');
     } else {
       hotkeyMsg(r.error, 'error');
       const st = await api.getHotkey();
@@ -342,12 +342,12 @@
   }
   $('hotkey-change').addEventListener('click', () => {
     capturing = true;
-    $('hotkey-change').textContent = '누르는 중…';
+    $('hotkey-change').textContent = 'Listening…';
     const box = $('hotkey-keys');
     box.textContent = '';
     const w = document.createElement('span');
     w.className = 'waiting';
-    w.textContent = '원하는 키 조합을 눌러 주세요 (Esc: 취소)';
+    w.textContent = 'Press the key combination you want (Esc to cancel)';
     box.append(w);
     hotkeyMsg('');
   });
@@ -360,9 +360,9 @@
       if (mods.length) showKeys(mods.join('+') + '+…');
       return;
     }
-    if (!mods.length) return hotkeyMsg('Ctrl · Alt · Shift 중 하나 이상과 함께 눌러 주세요.', 'error');
+    if (!mods.length) return hotkeyMsg('Press it together with at least one of Ctrl, Alt or Shift.', 'error');
     capturing = false;
-    $('hotkey-change').textContent = '바꾸기';
+    $('hotkey-change').textContent = 'Change';
     applyHotkey([...mods, key].join('+'));
   });
   $('hotkey-reset').addEventListener('click', () => applyHotkey('CommandOrControl+Alt+H'));

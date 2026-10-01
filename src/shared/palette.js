@@ -3,38 +3,38 @@
 (function (root) {
   const PALETTE = [
     // 1행
-    { id: 'sky', name: '하늘 파랑', hex: '#3F6EA8' },
-    { id: 'rust', name: '벽돌 빨강', hex: '#C2391A' },
-    { id: 'mustard', name: '머스터드', hex: '#DDB743' },
-    { id: 'teal', name: '청록', hex: '#4FA29B' },
-    { id: 'royal', name: '로열 블루', hex: '#2F55A0' },
-    { id: 'red', name: '빨강', hex: '#F2423A' },
-    { id: 'amber', name: '호박색', hex: '#EBAA38' },
+    { id: 'sky', name: 'Sky Blue', hex: '#3F6EA8' },
+    { id: 'rust', name: 'Brick Red', hex: '#C2391A' },
+    { id: 'mustard', name: 'Mustard', hex: '#DDB743' },
+    { id: 'teal', name: 'Teal', hex: '#4FA29B' },
+    { id: 'royal', name: 'Royal Blue', hex: '#2F55A0' },
+    { id: 'red', name: 'Red', hex: '#F2423A' },
+    { id: 'amber', name: 'Amber', hex: '#EBAA38' },
     // 2행
-    { id: 'forest', name: '숲 초록', hex: '#2A5A2E' },
-    { id: 'plum', name: '자두', hex: '#5C1E3F' },
-    { id: 'charcoal', name: '숯 회색', hex: '#3A3935' },
-    { id: 'orange', name: '주황', hex: '#D9560F' },
-    { id: 'pink', name: '살구 분홍', hex: '#EAB3A1' },
-    { id: 'lime', name: '연두', hex: '#C7D383' },
-    { id: 'gray', name: '회색', hex: '#8E8A78' },
+    { id: 'forest', name: 'Forest Green', hex: '#2A5A2E' },
+    { id: 'plum', name: 'Plum', hex: '#5C1E3F' },
+    { id: 'charcoal', name: 'Charcoal', hex: '#3A3935' },
+    { id: 'orange', name: 'Orange', hex: '#D9560F' },
+    { id: 'pink', name: 'Apricot Pink', hex: '#EAB3A1' },
+    { id: 'lime', name: 'Lime', hex: '#C7D383' },
+    { id: 'gray', name: 'Gray', hex: '#8E8A78' },
     // 3행
-    { id: 'berry', name: '베리', hex: '#8C1D45' },
-    { id: 'green', name: '초록', hex: '#17814A' },
-    { id: 'brown', name: '갈색', hex: '#6B3B1F' },
-    { id: 'crimson', name: '진홍', hex: '#8E1522' },
-    { id: 'cream', name: '크림', hex: '#D9D2B6' },
-    { id: 'emerald', name: '에메랄드', hex: '#12A07B' },
-    { id: 'tan', name: '황갈색', hex: '#A98D5B' },
+    { id: 'berry', name: 'Berry', hex: '#8C1D45' },
+    { id: 'green', name: 'Green', hex: '#17814A' },
+    { id: 'brown', name: 'Brown', hex: '#6B3B1F' },
+    { id: 'crimson', name: 'Crimson', hex: '#8E1522' },
+    { id: 'cream', name: 'Cream', hex: '#D9D2B6' },
+    { id: 'emerald', name: 'Emerald', hex: '#12A07B' },
+    { id: 'tan', name: 'Tan', hex: '#A98D5B' },
   ];
 
   const BY_ID = Object.fromEntries(PALETTE.map((c) => [c.id, c]));
 
   // 몸통 = 목 공 + 팔 + 손, 다리 = 아래 큰 공 + 다리 + 발
   const PARTS = [
-    { id: 'head', name: '머리' },
-    { id: 'body', name: '몸통' },
-    { id: 'legs', name: '다리' },
+    { id: 'head', name: 'Head' },
+    { id: 'body', name: 'Body' },
+    { id: 'legs', name: 'Legs' },
   ];
 
   function colorHex(id) {

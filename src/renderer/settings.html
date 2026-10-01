@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
@@ -17,35 +17,35 @@
     <div class="collect card">
       <canvas id="collect-icon" class="collect-icon" aria-hidden="true"></canvas>
       <div>
-        <div class="collect-label">모은 오뚜기</div>
-        <div class="collect-num"><span id="collect-count">0</span><small>개</small></div>
+        <div class="collect-label">Daruma collected</div>
+        <div class="collect-num"><span id="collect-count">0</span></div>
       </div>
     </div>
 
     <nav class="menu">
-      <button class="menu-btn yellow" data-go="custom"><span class="ico">🎨</span>캐릭터 커스터마이징</button>
-      <button class="menu-btn teal" data-go="hotkey"><span class="ico">⌨️</span>단축키 설정</button>
-      <button class="menu-btn red" id="quit-open"><span class="ico">🚪</span>나가기</button>
+      <button class="menu-btn yellow" data-go="custom"><span class="ico">🎨</span>Customize friends</button>
+      <button class="menu-btn teal" data-go="hotkey"><span class="ico">⌨️</span>Hotkey settings</button>
+      <button class="menu-btn red" id="quit-open"><span class="ico">🚪</span>Quit</button>
     </nav>
   </section>
 
   <!-- 캐릭터 커스터마이징 -->
   <section id="view-custom" class="view custom" hidden>
     <div class="topbar">
-      <button class="back" data-go="home">← 메뉴</button>
-      <h2>캐릭터 커스터마이징</h2>
+      <button class="back" data-go="home">← Menu</button>
+      <h2>Customize friends</h2>
     </div>
     <div class="custom-body">
       <aside class="sidebar card">
         <ul id="char-list" class="char-list"></ul>
-        <button id="add-char" class="btn yellow">＋ 새 친구</button>
-        <button id="import-open" class="btn">🔗 코드로 친구 추가</button>
+        <button id="add-char" class="btn yellow">＋ New friend</button>
+        <button id="import-open" class="btn">🔗 Add friend from code</button>
         <div id="import-box" class="import-box" hidden>
           <input id="import-code" type="text" placeholder="BW1-..." spellcheck="false" autocomplete="off" />
-          <button id="import-paste" class="btn small">📋 붙여넣기</button>
+          <button id="import-paste" class="btn small">📋 Paste</button>
           <div class="row tight">
-            <button id="import-cancel" class="btn small">취소</button>
-            <button id="import-add" class="btn yellow small">추가</button>
+            <button id="import-cancel" class="btn small">Cancel</button>
+            <button id="import-add" class="btn yellow small">Add</button>
           </div>
           <p id="import-msg" class="msg" role="status"></p>
         </div>
@@ -53,20 +53,20 @@
 
       <main class="editor">
         <section class="stage-wrap">
-          <canvas id="preview" class="stage" title="클릭하면 점프해요"></canvas>
+          <canvas id="preview" class="stage" title="Click to make them jump"></canvas>
         </section>
 
         <section class="panel card" id="char-panel">
           <label class="field">
-            <span>이름</span>
+            <span>Name</span>
             <input id="char-name" type="text" maxlength="20" />
           </label>
 
           <div class="field">
-            <span>공유 코드 · 친구에게 보내면 똑같은 친구를 데려갈 수 있어요</span>
+            <span>Share code · send it to someone and they get the exact same friend</span>
             <div class="share-row">
               <input id="share-code" type="text" readonly spellcheck="false" />
-              <button id="share-copy" class="btn teal">복사</button>
+              <button id="share-copy" class="btn teal">Copy</button>
             </div>
           </div>
 
@@ -74,31 +74,31 @@
           <div class="swatches" id="swatches"></div>
 
           <div class="row actions">
-            <button id="randomize" class="btn">🎲 랜덤 색상</button>
+            <button id="randomize" class="btn">🎲 Random colors</button>
             <span class="spacer"></span>
-            <button id="remove-char" class="btn red">작별 인사하기</button>
+            <button id="remove-char" class="btn red">Say goodbye</button>
           </div>
         </section>
 
         <section class="panel card global">
-          <h3>모두에게 적용</h3>
+          <h3>For everyone</h3>
           <div class="row">
             <label class="field grow">
-              <span>걷는 속도 <output id="speed-out"></output></span>
+              <span>Walking speed <output id="speed-out"></output></span>
               <input id="speed" type="range" min="0.3" max="3" step="0.1" />
             </label>
             <label class="field grow">
-              <span>전체 크기 <output id="size-out"></output></span>
+              <span>Size <output id="size-out"></output></span>
               <input id="size" type="range" min="0.6" max="1.8" step="0.05" />
             </label>
           </div>
           <div class="checks">
-            <label class="check"><input id="greet" type="checkbox" /><i></i>마주치면 서로 인사하기</label>
-            <label class="check"><input id="items" type="checkbox" /><i></i>바닥에 소품 생기기</label>
-            <label class="check"><input id="daruma" type="checkbox" /><i></i>가끔 빨간 오뚜기 나타나기</label>
-            <label class="check"><input id="shadows" type="checkbox" /><i></i>발밑 그림자</label>
-            <label class="check"><input id="paused" type="checkbox" /><i></i>제자리에 멈추기</label>
-            <label class="check"><input id="startup" type="checkbox" /><i></i>컴퓨터를 켤 때 같이 실행</label>
+            <label class="check"><input id="greet" type="checkbox" /><i></i>Greet each other</label>
+            <label class="check"><input id="items" type="checkbox" /><i></i>Drop props on the ground</label>
+            <label class="check"><input id="daruma" type="checkbox" /><i></i>Red Daruma visits now and then</label>
+            <label class="check"><input id="shadows" type="checkbox" /><i></i>Shadows</label>
+            <label class="check"><input id="paused" type="checkbox" /><i></i>Stay in place</label>
+            <label class="check"><input id="startup" type="checkbox" /><i></i>Launch when the computer starts</label>
           </div>
         </section>
       </main>
@@ -108,16 +108,16 @@
   <!-- 단축키 설정 -->
   <section id="view-hotkey" class="view hotkey" hidden>
     <div class="topbar">
-      <button class="back" data-go="home">← 메뉴</button>
-      <h2>단축키 설정</h2>
+      <button class="back" data-go="home">← Menu</button>
+      <h2>Hotkey settings</h2>
     </div>
     <div class="card hotkey-card">
-      <p class="lead">이 단축키를 누르면 친구들을 <b>바로 숨기고</b>, 한 번 더 누르면 다시 나타나요.<br />다른 창을 쓰고 있을 때도 동작해요.</p>
+      <p class="lead">Press this shortcut to <b>hide your friends instantly</b>, and press it again to bring them back.<br />It works even while you're using other windows.</p>
       <div id="hotkey-keys" class="keys" aria-live="polite"></div>
       <div class="row center">
-        <button id="hotkey-change" class="btn yellow">바꾸기</button>
-        <button id="hotkey-reset" class="btn">기본값 (Ctrl + Alt + H)</button>
-        <button id="hotkey-clear" class="btn">끄기</button>
+        <button id="hotkey-change" class="btn yellow">Change</button>
+        <button id="hotkey-reset" class="btn">Default (Ctrl + Alt + H)</button>
+        <button id="hotkey-clear" class="btn">Turn off</button>
       </div>
       <p id="hotkey-msg" class="msg center" role="status"></p>
     </div>
@@ -127,10 +127,10 @@
   <div id="quit-modal" class="modal" hidden>
     <div class="card modal-card">
       <canvas id="quit-face" class="quit-face" aria-hidden="true"></canvas>
-      <p>친구들과 작별할까요?<br /><small>앱이 완전히 종료돼요.</small></p>
+      <p>Say goodbye to your friends?<br /><small>The app will quit completely.</small></p>
       <div class="row center">
-        <button id="quit-cancel" class="btn">더 놀래요</button>
-        <button id="quit-ok" class="btn red">나가기</button>
+        <button id="quit-cancel" class="btn">Keep playing</button>
+        <button id="quit-ok" class="btn red">Quit</button>
       </div>
     </div>
   </div>

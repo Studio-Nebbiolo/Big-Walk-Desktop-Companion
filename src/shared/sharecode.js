@@ -30,7 +30,7 @@
 
   function encode(cfg) {
     const idx = Palette.PARTS.map((p) => Palette.PALETTE.findIndex((c) => c.id === cfg.colors[p.id]));
-    if (idx.some((i) => i < 0)) throw new Error('팔레트에 없는 색이 있어요');
+    if (idx.some((i) => i < 0)) throw new Error('A color is not in the palette');
     const name = Array.from(String(cfg.name || '').trim()).slice(0, MAX_NAME).join('');
     const body = [...idx, ...new TextEncoder().encode(name)];
     return PREFIX + toBase64Url(Uint8Array.from([...body, checksum(body)]));
@@ -39,35 +39,35 @@
   // 성공하면 { name, colors }, 실패하면 { error } 를 돌려준다.
   function decode(text) {
     const raw = String(text || '').replace(/\s+/g, '');
-    if (!raw) return { error: '코드를 입력해 주세요.' };
+    if (!raw) return { error: 'Please enter a code.' };
     const head = [PREFIX, ...LEGACY_PREFIXES].find((p) => raw.slice(0, p.length).toUpperCase() === p);
-    if (!head) return { error: `친구 코드가 아니에요. "${PREFIX}" 로 시작해야 해요.` };
+    if (!head) return { error: `That isn\'t a friend code. It should start with "${PREFIX}".` };
     const payload = raw.slice(head.length);
-    if (!payload) return { error: '코드가 너무 짧아요. 끝까지 복사했는지 확인해 주세요.' };
-    if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { error: '코드에 쓸 수 없는 글자가 들어 있어요.' };
+    if (!payload) return { error: 'The code is too short. Make sure you copied all of it.' };
+    if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { error: 'The code contains characters that aren\'t allowed.' };
     let bytes;
     try {
       bytes = fromBase64Url(payload);
     } catch {
-      return { error: '코드가 손상됐어요. 다시 복사해 주세요.' };
+      return { error: 'The code is damaged. Please copy it again.' };
     }
     const n = Palette.PARTS.length;
-    if (bytes.length < n + 1) return { error: '코드가 너무 짧아요. 끝까지 복사했는지 확인해 주세요.' };
+    if (bytes.length < n + 1) return { error: 'The code is too short. Make sure you copied all of it.' };
     const body = bytes.slice(0, -1);
-    if (checksum(body) !== bytes[bytes.length - 1]) return { error: '코드가 맞지 않아요. 오타가 없는지 확인해 주세요.' };
+    if (checksum(body) !== bytes[bytes.length - 1]) return { error: 'The code doesn\'t check out. Please look for typos.' };
     const colors = {};
     for (let i = 0; i < n; i++) {
       const c = Palette.PALETTE[body[i]];
-      if (!c) return { error: '알 수 없는 색이 들어 있어요.' };
+      if (!c) return { error: 'The code contains an unknown color.' };
       colors[Palette.PARTS[i].id] = c.id;
     }
     let name;
     try {
       name = new TextDecoder('utf-8', { fatal: true }).decode(body.slice(n));
     } catch {
-      return { error: '이름 부분이 손상됐어요.' };
+      return { error: 'The name part is damaged.' };
     }
-    name = Array.from(name.trim()).slice(0, MAX_NAME).join('') || '새 친구';
+    name = Array.from(name.trim()).slice(0, MAX_NAME).join('') || 'New friend';
     return { name, colors };
   }
 

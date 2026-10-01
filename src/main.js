@@ -33,10 +33,10 @@ const DEFAULT_SETTINGS = {
   paused: false,
   launchAtStartup: false,
   characters: [
-    { id: 'c1', name: '노랑이', colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
-    { id: 'c2', name: '파랑이', colors: { head: 'royal', body: 'rust', legs: 'amber' } },
-    { id: 'c3', name: '주황이', colors: { head: 'orange', body: 'royal', legs: 'lime' } },
-    { id: 'c4', name: '초록이', colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
+    { id: 'c1', name: 'Sunny', colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
+    { id: 'c2', name: 'Blue', colors: { head: 'royal', body: 'rust', legs: 'amber' } },
+    { id: 'c3', name: 'Tangerine', colors: { head: 'orange', body: 'royal', legs: 'lime' } },
+    { id: 'c4', name: 'Sprout', colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
   ],
 };
 
@@ -70,7 +70,7 @@ function sanitize(input) {
       for (const p of PARTS) colors[p.id] = BY_ID[src[p.id]] ? src[p.id] : fallback[p.id];
       return {
         id,
-        name: String(c.name ?? `친구 ${i + 1}`).slice(0, 20),
+        name: String(c.name ?? `Friend ${i + 1}`).slice(0, 20),
         colors,
       };
     }),
@@ -280,7 +280,7 @@ function registerHotkey(accel) {
     ok = false;
   }
   if (ok) registeredHotkey = accel;
-  return ok ? { ok: true } : { ok: false, error: '다른 프로그램이 이미 쓰고 있는 단축키예요. 다른 조합을 골라 주세요.' };
+  return ok ? { ok: true } : { ok: false, error: 'Another program is already using this shortcut. Please pick a different combination.' };
 }
 
 // --- 트레이 --------------------------------------------------------------------
@@ -289,17 +289,17 @@ function refreshTrayMenu() {
   if (!tray) return;
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: '메뉴 열기…', click: () => openSettings() },
-      { label: '새 친구 추가', click: addRandomCharacter, enabled: settings.characters.length < 20 },
+      { label: 'Open menu…', click: () => openSettings() },
+      { label: 'Add a new friend', click: addRandomCharacter, enabled: settings.characters.length < 20 },
       { type: 'separator' },
       {
-        label: '제자리에 멈추기',
+        label: 'Stay in place',
         type: 'checkbox',
         checked: settings.paused,
         click: (item) => updateSettings({ ...settings, paused: item.checked }),
       },
       {
-        label: '숨기기',
+        label: 'Hide',
         accelerator: registeredHotkey || undefined,
         registerAccelerator: false,
         type: 'checkbox',
@@ -314,9 +314,9 @@ function refreshTrayMenu() {
         },
       },
       { type: 'separator' },
-      { label: `모은 오뚜기: ${settings.darumaCount}개`, enabled: false },
+      { label: `Daruma collected: ${settings.darumaCount}`, enabled: false },
       { type: 'separator' },
-      { label: '나가기', click: () => app.quit() },
+      { label: 'Quit', click: () => app.quit() },
     ]),
   );
 }
@@ -328,7 +328,7 @@ function addRandomCharacter() {
     ...settings,
     characters: [
       ...settings.characters,
-      { id: `c${Date.now()}`, name: `친구 ${n}`, colors: randomColors() },
+      { id: `c${Date.now()}`, name: `Friend ${n}`, colors: randomColors() },
     ],
   });
 }
@@ -352,7 +352,7 @@ ipcMain.on('app:quit', () => app.quit());
 ipcMain.handle('hotkey:get', () => ({ accel: settings.hideHotkey, active: registeredHotkey === settings.hideHotkey }));
 ipcMain.handle('hotkey:set', (_e, accel) => {
   const next = String(accel ?? '');
-  if (next && !HOTKEY_RE.test(next)) return { ok: false, error: '쓸 수 없는 조합이에요. Ctrl·Alt·Shift 중 하나 이상과 글자/숫자/F키를 함께 눌러 주세요.' };
+  if (next && !HOTKEY_RE.test(next)) return { ok: false, error: 'That combination can\'t be used. Press at least one of Ctrl, Alt or Shift together with a letter, number or F key.' };
   const prev = settings.hideHotkey;
   const r = registerHotkey(next);
   if (!r.ok) {
@@ -382,10 +382,10 @@ ipcMain.on('character:menu', (e, charId) => {
   Menu.buildFromTemplate([
     { label: c.name, enabled: false },
     { type: 'separator' },
-    { label: '색 바꾸기…', click: () => openSettings(charId) },
-    { label: '공유 코드 복사', click: async () => await clipboard.writeText(ShareCode.encode(c)) },
+    { label: 'Change colors…', click: () => openSettings(charId) },
+    { label: 'Copy share code', click: async () => await clipboard.writeText(ShareCode.encode(c)) },
     {
-      label: '작별 인사하기 (삭제)',
+      label: 'Say goodbye (remove)',
       enabled: settings.characters.length > 1,
       click: () => updateSettings({ ...settings, characters: settings.characters.filter((x) => x.id !== charId) }),
     },
