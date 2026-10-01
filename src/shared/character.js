@@ -157,12 +157,13 @@
 
   // 엉덩방아 / 헤롱헤롱 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
   // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
-  // (사용자 피드백) 한쪽으로 오므리지 않고 두 다리가 양옆으로 벌어지도록: side 가 다리 방향.
+  // (사용자 피드백) 한쪽으로 오므리지 않고, 쩍벌도 아니게: 가운데에서 적당히 벌린다. side 가 다리 방향.
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
-    const hip = { x: side * R * 0.35, y: bodyY + R * 0.55 };
-    const knee = { x: side * (R + 8), y: bodyY + R * 0.25 };
-    const ankle = { x: side * (R + 15), y: -4.6 };
+    // 공 아래 가운데에서 나와 적당히 V 자로 벌린다 (발은 공 가장자리 조금 바깥)
+    const hip = { x: side * R * 0.2, y: bodyY + R * 0.7 };
+    const knee = { x: side * R * 0.85, y: bodyY + R * 0.3 };
+    const ankle = { x: side * R * 1.3, y: -4.6 };
     // 곡선이 무릎을 지나가도록 조절점을 잡는다
     const ctrl = { x: 2 * knee.x - (hip.x + ankle.x) / 2, y: 2 * knee.y - (hip.y + ankle.y) / 2 };
     return { hip, ctrl, ankle };
