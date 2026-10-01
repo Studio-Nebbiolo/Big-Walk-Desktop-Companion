@@ -1031,32 +1031,54 @@
           ctx.clip();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          // 1) 붙은 자리: 원기둥 끝 둘레에 바짝 붙은 진한 그늘
-          const t0 = pt(0.06);
-          const ang = Math.atan2(t0.y - l.hy, t0.x - l.hx);
-          ctx.filter = 'blur(0.8px)';
-          ctx.fillStyle = 'rgba(0,0,0,0.34)';
+          // 1) 붙은 자리: 원기둥 끝 바로 바깥(빛 반대쪽)에 얇은 초승달 그늘
+          const t0 = pt(0.05);
+          const tl = Math.hypot(t0.x - l.hx, t0.y - l.hy) || 1;
+          const bx = (l.hx - t0.x) / tl; // 다리 끝이 향하는 방향 (축의 반대)
+          const by = (l.hy - t0.y) / tl;
+          ctx.filter = 'blur(0.7px)';
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
           ctx.beginPath();
-          ctx.ellipse(l.hx + 0.7, l.hy + 0.9, legW * 0.45, legW * 0.72, ang, 0, Math.PI * 2);
+          ctx.arc(l.hx + bx * 0.9 + 0.4, l.hy + by * 0.9 + 0.6, legW * 0.5, 0, Math.PI * 2);
           ctx.fill();
-          // 2) 떠오르는 부분: 뿌리에서 0 으로 시작해 멀어질수록 오른쪽 아래로 벌어진다
-          ctx.filter = 'blur(1.4px)';
-          const N = 18;
-          for (let i = 0; i < N; i++) {
-            const k0 = i / N;
-            const k1 = (i + 1) / N;
-            const lift = Math.min(1, (k0 + k1) * 1.4); // 공 표면에서 떨어진 정도
-            const ox = 1.8 * lift;
-            const oy = 2.5 * lift;
-            const p0 = pt(k0);
-            const p1 = pt(k1);
-            ctx.strokeStyle = `rgba(0,0,0,${0.3 - 0.12 * lift})`;
-            ctx.lineWidth = legW * (0.9 + 0.3 * lift);
-            ctx.beginPath();
-            ctx.moveTo(p0.x + ox, p0.y + oy);
-            ctx.lineTo(p1.x + ox, p1.y + oy);
-            ctx.stroke();
+          // 2) 뿌리에서 무릎 전까지만: 붙은 자리에서 틈 없이 시작해 조금씩 벌어지며 사라진다
+          const kEnd = 0.38;
+          const end = pt(kEnd);
+          const fade = ctx.createRadialGradient(l.hx, l.hy, 0, l.hx, l.hy, Math.hypot(end.x - l.hx, end.y - l.hy));
+          fade.addColorStop(0, 'rgba(0,0,0,0.3)');
+          fade.addColorStop(0.6, 'rgba(0,0,0,0.16)');
+          fade.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.filter = 'blur(1.1px)';
+          ctx.strokeStyle = fade;
+          ctx.lineWidth = legW;
+          ctx.beginPath();
+          for (let i = 0; i <= 12; i++) {
+            const k = (i / 12) * kEnd;
+            const lift = k / kEnd;
+            const q = pt(k);
+            const x = q.x + 1.2 * lift;
+            const y = q.y + 1.6 * lift;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
           }
+          ctx.stroke();
+          // 3) 무릎을 지나 공 앞으로 내려오는 정강이: 공에서 떠 있으니 조금 떨어진 옅은 그림자
+          //    (무릎 쪽에서는 서서히 나타난다)
+          const s0 = pt(0.6);
+          const s1 = pt(0.78);
+          const appear = ctx.createLinearGradient(s0.x, s0.y, s1.x, s1.y);
+          appear.addColorStop(0, 'rgba(0,0,0,0)');
+          appear.addColorStop(1, 'rgba(0,0,0,0.2)');
+          ctx.filter = 'blur(1.5px)';
+          ctx.strokeStyle = appear;
+          ctx.lineWidth = legW * 1.1;
+          ctx.beginPath();
+          for (let i = 0; i <= 12; i++) {
+            const q = pt(0.6 + (i / 12) * 0.4);
+            if (i === 0) ctx.moveTo(q.x + 1.8, q.y + 2.4);
+            else ctx.lineTo(q.x + 1.8, q.y + 2.4);
+          }
+          ctx.stroke();
           ctx.restore();
         }
         noodle(ctx, { x: l.hx, y: l.hy }, { x: l.cx, y: l.cy }, { x: l.ax, y: l.ay }, legW, hex, c2);
