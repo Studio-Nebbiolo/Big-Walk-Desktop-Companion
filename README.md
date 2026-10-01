@@ -5,10 +5,12 @@ House House 의 게임 *Big Walk* 캐릭터에서 영감을 받아 만든 비공
 
 ## 받아서 쓰기 (Windows)
 
-1. 배포된 압축 파일(`BigWalkCompanion-*.7z.001` ~ `.004`)을 모두 한 폴더에 받는다.
-2. `.001` 파일을 반디집이나 7-Zip 으로 풀면 나머지도 같이 풀린다.
-3. 풀린 폴더의 **`Big Walk Companion.exe`** 를 실행한다. 설치는 필요 없다.
-4. 코드 서명이 없어서 처음 실행할 때 "Windows의 PC 보호" 경고가 뜨면 **추가 정보 → 실행** 을 누른다.
+저장소의 **Releases** 페이지에서 최신 버전을 받는다.
+
+- `BigWalkCompanion-<버전>-portable.exe`: 설치 없이 더블클릭으로 바로 실행.
+- `BigWalkCompanion-<버전>-setup.exe`: 설치 프로그램 (시작 메뉴 · 바탕화면 바로가기).
+
+코드 서명이 없어서 처음 실행할 때 "Windows의 PC 보호" 경고가 뜨면 **추가 정보 → 실행** 을 누른다.
 
 ## 개발
 
@@ -18,6 +20,11 @@ npm start
 ```
 
 배포 파일 만들기: `npm run dist:win` (Windows, NSIS + 포터블), `npm run dist:mac`.
+
+### 릴리스
+
+`package.json` 의 `version` 을 올리고 같은 버전의 태그(`v0.2.0` 등)를 푸시하면,
+GitHub Actions(`.github/workflows/release.yml`)가 Windows 에서 exe 를 빌드해 Releases 에 올린다.
 
 ## 사용법
 
