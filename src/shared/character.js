@@ -537,6 +537,7 @@
         spiral: 0, // 헤롱헤롱: 소용돌이 눈
         sleep: 0, // 잠든 눈
         frontArmBehind: 0,
+        backArmBehind: 0,
         legsOnTop: 0,
         face: 0, // 0 = 옆얼굴, 1 = 정면. 앉을 때는 보는 사람 쪽으로 고개를 돌린다
         legs: [],
@@ -752,52 +753,69 @@
         P.arms.push({ sx: sh.x, sy: sh.y, cx: ctrl.x, cy: ctrl.y, hx: hand.x, hy: hand.y, cub });
       }
 
-      // --- 들고 있는 물건 ---
+      // --- 들고 있는 물건: 레퍼런스처럼 모든 물건을 두 손으로 든다 ---
       if (it && !dangling) {
         const front = P.arms[1];
         const back = P.arms[0];
         const using = st === 'use';
-        if (it === 'radio') {
-          // 레퍼런스처럼 한 손으로 가슴 높이에 들고 다닌다.
-          // 쓸 때는 귀 옆까지 들어 올려 음악을 틀고, 박자에 맞춰 살짝 흔든다.
+        if (crouch) {
+          // 줍거나 내려놓는 순간에는 뻗은 손끝에 물건이 붙어 있다
+          const a = it === 'megaphone' || it === 'flare' ? 0.3 : 0.05;
+          P.item = { x: front.hx, y: front.hy, a };
+        } else {
+          // 기본: 레퍼런스처럼 팔을 앞으로 뻗어 가슴 높이에서 두 손으로 양옆을 잡는다.
+          // 물건 폭에 맞춰 앞으로 내밀어 몸에 파묻히지 않게 한다.
+          const halfW = Items.halfWidth(it);
+          let cx = R * 0.8 + halfW * 0.8 + 4;
+          let cy = torsoY + T * 1.35;
+          let a = 0;
+          let overhead = false;
           if (using) {
-            Object.assign(front, { cub: null, hx: H * 1.15, hy: headY + H * 0.85, cx: R * 1.3, cy: torsoY + T * 0.9 });
-            P.item = { x: front.hx, y: front.hy, a: -0.1 + Math.sin(t * 6) * 0.06 };
-            P.fx = 'notes';
-          } else {
-            Object.assign(front, { cub: null, hx: R * 0.95, hy: torsoY + T * 1.1, cx: R * 1.3, cy: torsoY + T * 2 });
-            P.item = { x: front.hx, y: front.hy, a: 0 };
+            if (it === 'walkie') {
+              // 입 앞에 대고 말한다
+              cx = H * 1.4;
+              cy = headY + H * 1.05;
+              a = -0.12;
+              P.fx = 'radio';
+            } else if (it === 'radio') {
+              // 귀 옆까지 들어 올려 음악을 틀고 박자에 맞춰 흔든다
+              cx = H * 1.55;
+              cy = headY + H * 0.45;
+              a = -0.1 + Math.sin(t * 6) * 0.06;
+              P.fx = 'notes';
+            } else if (it === 'megaphone') {
+              // 입에 대고 앞으로 외친다
+              cx = H * 1.75 + 10;
+              cy = headY + H * 0.7;
+              a = -0.08;
+              P.fx = 'shout';
+            } else if (it === 'flare') {
+              // 두 손으로 머리 위로 곧게 치켜들고 쏜다 (쏘는 순간 반동으로 튄다)
+              const kick = this.fired ? Math.max(0, 1 - (this.stateT - 0.7) * 5) * 4 : 0;
+              const raise = Math.min(1, this.stateT / 0.35);
+              cx = R * 0.55;
+              cy = headY - H - 14 - raise * 6 + kick;
+              a = -Math.PI / 2 + 0.12 - kick * 0.03;
+              overhead = true;
+            }
           }
-        } else if (it === 'flare' && using) {
-          // 신호탄 총을 머리 위로 곧게 치켜들고 쏜다 (쏘는 순간 반동으로 팔이 살짝 튄다)
-          const kick = this.fired ? Math.max(0, 1 - (this.stateT - 0.7) * 5) * 4 : 0;
-          const raise = Math.min(1, this.stateT / 0.35);
+          const h = Items.hold(it, cx, cy, a);
+          Object.assign(back, {
+            cub: null,
+            hx: h.hands[0].x,
+            hy: h.hands[0].y,
+            cx: overhead ? R * 0.1 : R * 0.35,
+            cy: overhead ? torsoY - 6 : torsoY + T * 1.9,
+          });
           Object.assign(front, {
             cub: null,
-            hx: R * 0.7,
-            hy: headY - H - 4 - raise * 6 + kick,
-            cx: R * 1.25,
-            cy: torsoY - 4,
+            hx: h.hands[1].x,
+            hy: h.hands[1].y,
+            cx: overhead ? R * 1.2 : R * 1.15,
+            cy: overhead ? torsoY - 4 : torsoY + T * 1.1,
           });
-          P.item = { x: front.hx, y: front.hy, a: -Math.PI / 2 + 0.12 - kick * 0.03 };
-        } else if (it === 'megaphone' && using) {
-          // 두 손으로 확성기를 입에 대고 앞으로 외친다
-          const gx = H * 1.55;
-          const gy = headY + H * 0.95;
-          Object.assign(front, { cub: null, hx: gx, hy: gy, cx: R * 1.2, cy: torsoY + T * 0.8 });
-          Object.assign(back, { cub: null, hx: gx + 20, hy: gy - 9, cx: R * 0.7, cy: torsoY + T * 1.5 });
-          P.item = { x: gx, y: gy, a: -0.08 };
-          P.fx = 'shout';
-        } else if (it === 'walkie' && using) {
-          // 무전기를 얼굴 옆에 대고 말한다
-          const gx = H * 1.2;
-          const gy = headY + H * 0.75;
-          Object.assign(front, { cub: null, hx: gx, hy: gy, cx: R * 1.25, cy: torsoY + T * 0.9 });
-          P.item = { x: gx, y: gy - 3, a: -0.15 };
-          P.fx = 'radio';
-        } else {
-          const a = it === 'megaphone' ? 1.25 : it === 'flare' ? 0.7 : 0.05;
-          P.item = { x: front.hx, y: front.hy, a: crouch ? a + 0.2 : a };
+          P.item = h.item;
+          if (overhead) P.backArmBehind = 1; // 머리 위로 든 팔이 얼굴을 가리지 않게
         }
       }
       // 모든 팔을 3차 곡선으로 통일한다 (자세 사이를 부드럽게 섞기 위해)
@@ -871,7 +889,10 @@
       };
 
       // 머리 뒤로 올라간 팔은 먼저 그린다
-      const armsBehind = P.arms.map((a, i) => (a.hy < torsoY - T && !P.item) || (i === 1 && P.frontArmBehind > 0.5));
+      const armsBehind = P.arms.map(
+        (a, i) =>
+          (a.hy < torsoY - T && !P.item) || (i === 1 && P.frontArmBehind > 0.5) || (i === 0 && P.backArmBehind > 0.5),
+      );
       P.arms.forEach((a, i) => armsBehind[i] && drawArm(a, i));
 
       if (!P.legsFront) P.legs.forEach(drawLeg);
@@ -907,7 +928,7 @@
     // --- 신호탄 -------------------------------------------------------------------
     fireFlare(world) {
       const s = this.scale;
-      const x = this.x + this.dir * DIM.bodyR * 0.7 * s;
+      const x = this.x + this.dir * DIM.bodyR * 0.6 * s;
       const h = this.h + this.height + 6 * s;
       // 창 위쪽 가까이에서 터지도록 속도를 맞춘다
       const top = Math.max(h + 40, (world.height || 320) - 26);

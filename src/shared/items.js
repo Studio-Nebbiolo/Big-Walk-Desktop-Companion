@@ -41,6 +41,9 @@
     // 왼쪽 아래 모서리가 둥글게 파인 검은 타공 그릴, 옆면 주황 버튼.
     walkie: {
       grip: { x: 0, y: 4 },
+      // 두 손으로 들 때: 물건 가운데와 양손이 닿는 자리 (뒤쪽 손, 앞쪽 손)
+      center: { x: 0, y: 1 },
+      hands: [{ x: -8.8, y: 4 }, { x: 8.4, y: 4 }],
       rest: { x: 0, y: 12, angle: 0 },
       draw(ctx, t = 0) {
         // 안테나
@@ -131,6 +134,8 @@
     // 확성기: 회색 손잡이, 흰 나팔, 빨간 띠, 검은 입구
     megaphone: {
       grip: { x: -3.5, y: 9 },
+      center: { x: 1, y: -2 },
+      hands: [{ x: -3.3, y: 10.5 }, { x: 9, y: 5.5 }], // 손잡이, 나팔 아래
       rest: { x: 0, y: 13, angle: 0 },
       draw(ctx) {
         ctx.fillStyle = matteFill(ctx, '#6d6b66', 2, 14);
@@ -170,6 +175,8 @@
     // 주황 이퀄라이저 막대가 춤추는 검은 화면, 아래 큰 원형 스피커, 왼쪽 옆 주황 다이얼.
     radio: {
       grip: { x: -9, y: 6 },
+      center: { x: 0.7, y: 0 },
+      hands: [{ x: -10.6, y: 4 }, { x: 11.8, y: 4 }], // 양 옆면
       rest: { x: 0, y: 13.5, angle: 0 },
       draw(ctx, t = 0) {
         // 옆면(두께)과 몸체
@@ -232,6 +239,8 @@
     flare: {
       scale: 0.75, // 손에 쥐는 권총 크기
       grip: { x: -6, y: 6 },
+      center: { x: 4, y: 0 },
+      hands: [{ x: -6.5, y: 7 }, { x: 9, y: 2.2 }], // 손잡이, 총열 아래
       rest: { x: 0, y: 12.5, angle: 0 },
       draw(ctx) {
         const red = '#D23A2C';
@@ -325,6 +334,28 @@
     ctx.restore();
   }
 
+  // 두 손으로 들기: 물건 가운데를 (cx, cy) 에 두고 angle 만큼 돌렸을 때
+  // drawHeld 에 넘길 위치와 양손(뒤쪽, 앞쪽)이 닿을 자리를 돌려준다.
+  function hold(type, cx, cy, angle = 0) {
+    const t = TYPES[type];
+    const k = SIZE * (t.scale || 1);
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const at = (p) => {
+      const dx = (p.x - t.center.x) * k;
+      const dy = (p.y - t.center.y) * k;
+      return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c };
+    };
+    const g = at(t.grip);
+    return { item: { x: g.x, y: g.y, a: angle }, hands: t.hands.map(at) };
+  }
+
+  // 두 손 사이 거리의 절반 (손 위치를 잡을 때 쓰는 물건의 반폭)
+  function halfWidth(type) {
+    const t = TYPES[type];
+    return ((t.hands[1].x - t.hands[0].x) / 2) * SIZE * (t.scale || 1);
+  }
+
   // 바닥에 놓인 상태
   function drawResting(ctx, item, groundY, scale, shadows = true) {
     const t = TYPES[item.type];
@@ -344,5 +375,5 @@
     ctx.restore();
   }
 
-  root.Items = { TYPES, TYPE_IDS, drawHeld, drawResting, softShadow, tone };
+  root.Items = { TYPES, TYPE_IDS, drawHeld, drawResting, hold, halfWidth, softShadow, tone };
 })(window);
