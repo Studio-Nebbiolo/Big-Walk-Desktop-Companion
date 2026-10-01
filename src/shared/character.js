@@ -132,21 +132,19 @@
     return { x: x * c - y * s, y: x * s + y * c };
   }
 
-  // 앉았을 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
-  // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
-  // 앉았을 때의 다리: 두 다리가 똑같은 아치 모양으로 나란히 선다.
-  // 공 아래쪽에서 나와 앞으로 솟았다가, 둥글게 넘어가 발까지 거의 수직으로 내려온다.
-  // (사용자가 그려준 그림: 두 개의 ∩ 가 조금 겹쳐 나란히)
-  function sitLeg(side, bodyY) {
+  // 앉았을 때의 다리 (아빠다리): 큰 공 아래에서 나온 다리가 무릎을 양옆 바닥으로
+  // 벌렸다가, 정강이가 공 앞에서 X 자로 엇갈리고 발끝은 반대쪽 무릎 너머로 삐져나온다.
+  function crossLeg(side, bodyY) {
     const R = DIM.bodyR;
-    const off = side > 0 ? 12 : 0; // 앞쪽 다리를 한 칸 앞으로
-    const hip = { x: R * 0.55 + off, y: bodyY + R * 0.5 };
-    const ankle = { x: R * 0.55 + off + 21, y: -4.6 };
-    const c1 = { x: hip.x + 3, y: hip.y - R * 1.15 };
-    const c2 = { x: ankle.x + 1, y: ankle.y - R * 1.75 };
+    const hip = { x: side * R * 0.45, y: bodyY + R * 0.55 };
+    const ankle = { x: -side * R * 0.72, y: -6.5 };
+    const c1 = { x: side * (R + 10), y: hip.y - 3 }; // 무릎이 양옆으로 살짝 들린 채 벌어진다
+    const c2 = { x: side * (R + 12), y: -18 }; // 무릎을 돌아 정강이가 안쪽으로
     return { hip, c1, c2, ankle };
   }
 
+  // 엉덩방아 / 헤롱헤롱 때의 다리: 공 아래 앞쪽에서 나와 나란히 앞으로 뻗고 무릎을 살짝 굽힌다.
+  // side -1(뒤쪽 다리)은 조금 뒤로 물려 두 다리가 겹쳐 보이게 한다.
   function tidyLeg(side, bodyY) {
     const R = DIM.bodyR;
     const off = side > 0 ? 0 : -5;
@@ -217,6 +215,10 @@
     }
 
     setState(state, duration, blend = 0.22) {
+      const isSit = (s) => s === 'sit' || s === 'sitsleep';
+      // 서 있다가 앉을 때는 철푸덕: 떨어지듯 빨라지며 주저앉고, 닿는 순간 찌그러진다
+      this.plop = isSit(state) && !isSit(this.state) && this.state !== undefined;
+      if (this.plop) blend = 0.26;
       this.state = state;
       this.stateT = 0;
       const d = DURATIONS[state] || [1, 1];
@@ -320,6 +322,10 @@
       this.blendT += dt;
       const speed = world.speed || 1;
 
+      if (this.plop && this.blendT >= this.blendDur) {
+        this.plop = false;
+        this.squash = 0.85; // 철푸덕!
+      }
       this.squash = Math.max(0, this.squash - dt * 3);
       this.greetCooldown = Math.max(0, this.greetCooldown - dt);
 
@@ -548,9 +554,9 @@
       }
 
       if (sitting) {
-        P.bodyY = -R - 2;
-        P.face = 0.65;
-        P.legsOnTop = 1; // 다리 아치가 팔보다 앞에 보인다
+        P.bodyY = -R * 0.97; // 큰 공이 바닥에 철푸덕
+        P.face = 0.55;
+        P.legsOnTop = 1; // 엇갈린 다리가 팔보다 앞에 보인다
       }
       else if (onButt) P.bodyY = -R * 0.98;
       else if (crouch) P.bodyY = -L * 0.72 - R * 0.8;
@@ -607,13 +613,13 @@
         let fa = 0;
         let cubic = null;
         if (sitting) {
-          // 두 다리가 나란히 같은 아치를 그린다
-          const leg = sitLeg(side, bodyY);
+          // 아빠다리: 무릎은 양옆, 정강이는 공 앞에서 엇갈린다
+          const leg = crossLeg(side, bodyY);
           hip.x = leg.hip.x;
           hip.y = leg.hip.y;
           ankle = leg.ankle;
           cubic = [leg.c1, leg.c2];
-          fa = 0;
+          fa = side > 0 ? Math.PI + 0.35 : -0.35; // 발끝이 반대쪽 위로 삐져나온다
           P.legsFront = true;
         } else if (onButt) {
           // 엉덩방아 / 헤롱헤롱: 두 다리를 가지런히 앞으로: 큰 공을 바닥에 대고 두 다리를 가지런히 앞으로 모은다.
@@ -696,10 +702,10 @@
           hand = { x: side * R * 0.95 + sway, y: bodyY + R * 0.2 };
           ctrl = { x: side * R * 1.2, y: torsoY + T * 1.2 };
         } else if (sitting) {
-          // 두 팔을 공 양옆으로 편안히 늘어뜨려 손을 바닥에 내려놓는다
+          // 두 팔을 몸 양옆으로 축 늘어뜨려 무릎 바깥 바닥에 손을 내려놓는다
           const sway = Math.sin(t * 1.6 + side) * 0.6;
-          hand = { x: side * R * 1.0 + sway, y: -handR - 1 };
-          ctrl = { x: side * R * 1.25, y: torsoY + T * 0.9 };
+          hand = { x: side * (R + 16) + sway, y: -handR - 0.5 };
+          ctrl = { x: side * R * 1.35, y: torsoY + T * 0.8 };
         } else if (sitting || st === 'dizzy') {
           // 두 팔을 공 옆으로 편안히 늘어뜨려 손을 바닥 가까이에 내려놓는다
           // (헤롱거릴 땐 느슨하게 흔들린다)
@@ -785,7 +791,8 @@
 
       let P = this.computePose();
       if (this.fromPose && this.blendT < this.blendDur) {
-        P = lerpPose(this.fromPose, P, ease(this.blendT / this.blendDur));
+        const k = this.blendT / this.blendDur;
+        P = lerpPose(this.fromPose, P, this.plop ? k * k : ease(k));
       }
       this.lastPose = P;
 
