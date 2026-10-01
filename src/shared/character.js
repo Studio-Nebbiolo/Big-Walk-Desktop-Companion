@@ -1193,16 +1193,23 @@
       ctx.strokeStyle = '#141414';
       ctx.lineCap = 'round';
       if (P.spiral > 0.5) {
-        // 헤롱헤롱: 빙글빙글 도는 소용돌이 눈
-        const turns = 1.6; // 덜 빽빽한 달팽이 (흰자 안쪽에만 그린다)
+        // 헤롱헤롱: 빙글빙글 도는 소용돌이 눈. 레퍼런스처럼 굵은 선이
+        // 흰자를 거의 꽉 채우며 두 바퀴 남짓 감기고, 선 굵기 ≈ 선 사이 간격이다.
+        // 가운데는 0 이 아니라 작은 반지름에서 시작해 갈고리처럼 말린다.
+        const turns = 2.25;
         const rot = -this.t * 8;
-        ctx.lineWidth = 1.45;
+        const sx = erx * 0.84;
+        const sy = Math.min(ery * 0.8, erx * 1.0); // 흰자가 세로로 길어도 소용돌이는 거의 동그랗게
+        const r0 = 0.12;
+        ctx.lineWidth = Math.max(1.4, (erx * 0.84 * (1 - r0)) / turns * 0.78);
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        for (let i = 0; i <= 60; i++) {
-          const k = i / 60;
+        for (let i = 0; i <= 90; i++) {
+          const k = i / 90;
           const a = k * turns * Math.PI * 2 + rot;
-          const x = ex + Math.cos(a) * erx * 0.58 * k;
-          const y = ey + Math.sin(a) * ery * 0.58 * k;
+          const rr = r0 + (1 - r0) * k;
+          const x = ex + Math.cos(a) * sx * rr;
+          const y = ey + Math.sin(a) * sy * rr;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
