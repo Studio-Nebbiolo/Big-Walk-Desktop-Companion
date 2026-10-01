@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, clipboard } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, clipboard, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { PALETTE, PARTS, BY_ID, randomColors } = require('./shared/palette');
@@ -6,6 +6,8 @@ const ShareCode = require('./shared/sharecode');
 
 const STAGE_HEIGHT = 320; // 작업표시줄 위로 캐릭터가 뛰어놀 공간
 const CURSOR_POLL_MS = 50;
+const DEFAULT_HOTKEY = 'CommandOrControl+Alt+H';
+const HOTKEY_RE = /^((CommandOrControl|Ctrl|Alt|Shift|Super)\+){1,3}([A-Z0-9]|F([1-9]|1[0-9]|2[0-4])|Space|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|Delete)$/;
 
 let companionWin = null;
 let settingsWin = null;
@@ -24,6 +26,9 @@ const DEFAULT_SETTINGS = {
   greet: true,
   shadows: true,
   items: true,
+  daruma: true,
+  darumaCount: 0,
+  hideHotkey: DEFAULT_HOTKEY,
   paused: false,
   launchAtStartup: false,
   characters: [
@@ -47,6 +52,9 @@ function sanitize(input) {
     greet: s.greet !== false,
     shadows: s.shadows !== false,
     items: s.items !== false,
+    daruma: s.daruma !== false,
+    darumaCount: Math.max(0, Math.floor(clampNum(s.darumaCount, 0, 1e9, 0))),
+    hideHotkey: typeof s.hideHotkey === 'string' && (s.hideHotkey === '' || HOTKEY_RE.test(s.hideHotkey)) ? s.hideHotkey : DEFAULT_HOTKEY,
     paused: !!s.paused,
     launchAtStartup: !!s.launchAtStartup,
     characters: chars.slice(0, 20).map((c, i) => {
@@ -178,22 +186,23 @@ function startCursorPolling() {
 
 // --- 설정 창 -----------------------------------------------------------------
 
+// 메뉴 창: 홈(메뉴) / 친구 꾸미기 / 단축키 설정. charId 를 주면 꾸미기 화면에서 그 친구를 연다.
 function openSettings(charId) {
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.show();
     settingsWin.focus();
-    if (charId) settingsWin.webContents.send('settings:select', charId);
+    settingsWin.webContents.send('settings:select', charId || null);
     return;
   }
   settingsWin = new BrowserWindow({
-    width: 900,
-    height: 740,
-    minWidth: 760,
-    minHeight: 560,
-    title: 'Big Walk Companion · 친구들 꾸미기',
+    width: 960,
+    height: 780,
+    minWidth: 780,
+    minHeight: 600,
+    title: 'Big Walk Companion',
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     autoHideMenuBar: true,
-    backgroundColor: '#1d1f24',
+    backgroundColor: '#F4EBD6',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -205,13 +214,39 @@ function openSettings(charId) {
   settingsWin.on('closed', () => (settingsWin = null));
 }
 
+// --- 숨기기 단축키 ----------------------------------------------------------------
+
+let registeredHotkey = null;
+
+function toggleCompanion() {
+  if (!companionWin || companionWin.isDestroyed()) return;
+  if (companionWin.isVisible()) companionWin.hide();
+  else companionWin.showInactive();
+  refreshTrayMenu();
+}
+
+// 단축키를 등록한다. 다른 프로그램이 이미 쓰고 있으면 실패하고 이전 단축키를 유지한다.
+function registerHotkey(accel) {
+  if (registeredHotkey) globalShortcut.unregister(registeredHotkey);
+  registeredHotkey = null;
+  if (!accel) return { ok: true };
+  let ok = false;
+  try {
+    ok = globalShortcut.register(accel, toggleCompanion);
+  } catch {
+    ok = false;
+  }
+  if (ok) registeredHotkey = accel;
+  return ok ? { ok: true } : { ok: false, error: '다른 프로그램이 이미 쓰고 있는 단축키예요. 다른 조합을 골라 주세요.' };
+}
+
 // --- 트레이 --------------------------------------------------------------------
 
 function refreshTrayMenu() {
   if (!tray) return;
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: '친구들 꾸미기…', click: () => openSettings() },
+      { label: '메뉴 열기…', click: () => openSettings() },
       { label: '새 친구 추가', click: addRandomCharacter, enabled: settings.characters.length < 20 },
       { type: 'separator' },
       {
@@ -222,6 +257,8 @@ function refreshTrayMenu() {
       },
       {
         label: '숨기기',
+        accelerator: registeredHotkey || undefined,
+        registerAccelerator: false,
         type: 'checkbox',
         checked: companionWin ? !companionWin.isVisible() : false,
         click: (item) => {
@@ -231,7 +268,9 @@ function refreshTrayMenu() {
         },
       },
       { type: 'separator' },
-      { label: '종료', click: () => app.quit() },
+      { label: `모은 오뚜기: ${settings.darumaCount}개`, enabled: false },
+      { type: 'separator' },
+      { label: '나가기', click: () => app.quit() },
     ]),
   );
 }
@@ -262,6 +301,21 @@ ipcMain.handle('settings:get', () => settings);
 ipcMain.handle('palette:get', () => PALETTE);
 ipcMain.on('settings:save', (_e, next) => updateSettings(next));
 ipcMain.on('settings:open', (_e, charId) => openSettings(charId));
+ipcMain.on('daruma:collected', () => updateSettings({ ...settings, darumaCount: settings.darumaCount + 1 }));
+ipcMain.on('app:quit', () => app.quit());
+ipcMain.handle('hotkey:get', () => ({ accel: settings.hideHotkey, active: registeredHotkey === settings.hideHotkey }));
+ipcMain.handle('hotkey:set', (_e, accel) => {
+  const next = String(accel ?? '');
+  if (next && !HOTKEY_RE.test(next)) return { ok: false, error: '쓸 수 없는 조합이에요. Ctrl·Alt·Shift 중 하나 이상과 글자/숫자/F키를 함께 눌러 주세요.' };
+  const prev = settings.hideHotkey;
+  const r = registerHotkey(next);
+  if (!r.ok) {
+    registerHotkey(prev);
+    return r;
+  }
+  updateSettings({ ...settings, hideHotkey: next });
+  return { ok: true, accel: next };
+});
 // 공유 코드 복사/붙여넣기 (샌드박스 렌더러는 클립보드에 직접 못 닿는다)
 // (이 Electron 버전에서는 clipboard API 가 Promise 를 돌려줄 수 있어 await 한다)
 ipcMain.on('clipboard:write', async (_e, text) => {
@@ -309,6 +363,7 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform === 'darwin') app.dock?.hide();
     settings = loadSettings();
     createCompanion();
+    registerHotkey(settings.hideHotkey);
     createTray();
     if (process.env.BIG_WALK_OPEN_SETTINGS) openSettings();
   });
@@ -317,6 +372,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {});
   app.on('before-quit', () => {
     clearInterval(cursorTimer);
+    globalShortcut.unregisterAll();
     try {
       if (settings) fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2));
     } catch {}

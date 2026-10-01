@@ -7,6 +7,19 @@
   let selectedId = new URLSearchParams(location.search).get('select');
   let part = 'head';
 
+  // --- 화면 전환: 홈(메뉴) / 커스터마이징 / 단축키 ---------------------------
+  let view = 'home';
+  function go(next) {
+    view = next;
+    for (const v of ['home', 'custom', 'hotkey']) $(`view-${v}`).hidden = v !== next;
+    if (next === 'hotkey') loadHotkey();
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-go]');
+    if (b) go(b.dataset.go);
+  });
+  if (selectedId) go('custom');
+
   const current = () => settings.characters.find((c) => c.id === selectedId);
 
   let saveTimer = null;
@@ -105,6 +118,8 @@
     $('greet').checked = settings.greet;
     $('shadows').checked = settings.shadows;
     $('items').checked = settings.items;
+    $('daruma').checked = settings.daruma;
+    $('collect-count').textContent = settings.darumaCount;
     $('paused').checked = settings.paused;
     $('startup').checked = settings.launchAtStartup;
   }
@@ -211,8 +226,171 @@
   bindGlobal('greet', 'greet', (t) => t.checked);
   bindGlobal('shadows', 'shadows', (t) => t.checked);
   bindGlobal('items', 'items', (t) => t.checked);
+  bindGlobal('daruma', 'daruma', (t) => t.checked);
   bindGlobal('paused', 'paused', (t) => t.checked);
   bindGlobal('startup', 'launchAtStartup', (t) => t.checked);
+
+  // --- 홈 화면 장면: 친구들이 오뚜기 주변을 오가며 신기해한다 ------------------
+  let homeChars = null;
+  let homeDaruma = null;
+  let homeIcon = null;
+  function drawHome(dt) {
+    const { ctx, w, h } = fit($('home-stage'));
+    const ground = h - 26;
+    if (!homeChars || homeChars.sig !== settings.characters.map((c) => c.id).join()) {
+      const list = settings.characters.slice(0, 6);
+      homeDaruma = new Daruma(w * 0.68, 0);
+      homeChars = list.map((cfg, i) => {
+        const c = new Character(cfg, { x: w * 0.68 + (i % 2 ? 1 : -1) * (70 + Math.floor(i / 2) * 64) });
+        c.state = 'marvel';
+        return c;
+      });
+      homeChars.sig = settings.characters.map((c) => c.id).join();
+      homeChars.forEach((c) => c.setDirective({ x: c.x, face: Math.sign(homeDaruma.x - c.x) || 1 }));
+    }
+    const s = Math.min(1, (ground - 10) / (homeChars[0]?.height || 150) / 1.15);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#E2C48C';
+    ctx.fillRect(0, ground, w, h - ground);
+    ctx.fillStyle = '#2B2A33';
+    ctx.fillRect(0, ground, w, 3);
+    homeDaruma.update(dt);
+    homeDaruma.draw(ctx, ground, s, true);
+    for (const c of homeChars) {
+      c.globalSize = s;
+      c.update(dt, { width: w, height: h, speed: 1 });
+      c.draw(ctx, ground);
+    }
+    // 모은 오뚜기 아이콘
+    const ic = fit($('collect-icon'));
+    if (!homeIcon) homeIcon = new Daruma(ic.w / 2, 0);
+    homeIcon.x = ic.w / 2;
+    homeIcon.update(dt);
+    if (Math.random() < dt * 0.4) homeIcon.wobbleV += (Math.random() - 0.5) * 6;
+    ic.ctx.clearRect(0, 0, ic.w, ic.h);
+    homeIcon.draw(ic.ctx, ic.h - 4, (ic.h - 10) / DarumaShape.HEIGHT, true);
+  }
+  $('home-stage').addEventListener('click', () => {
+    homeDaruma?.hit(0);
+    homeChars?.forEach((c) => c.celebrate());
+  });
+
+  // --- 단축키 설정 ---------------------------------------------------------------
+  const KEY_LABEL = { CommandOrControl: 'Ctrl', Super: 'Win' };
+  let capturing = false;
+  function showKeys(accel) {
+    const box = $('hotkey-keys');
+    box.textContent = '';
+    if (!accel) {
+      const span = document.createElement('span');
+      span.className = 'off';
+      span.textContent = '단축키를 쓰지 않아요';
+      box.append(span);
+      return;
+    }
+    accel.split('+').forEach((k, i) => {
+      if (i) {
+        const plus = document.createElement('span');
+        plus.className = 'plus';
+        plus.textContent = '+';
+        box.append(plus);
+      }
+      const key = document.createElement('span');
+      key.className = 'key';
+      key.textContent = KEY_LABEL[k] || k;
+      box.append(key);
+    });
+  }
+  const hotkeyMsg = (text, kind = '') => {
+    $('hotkey-msg').textContent = text;
+    $('hotkey-msg').className = `msg center ${kind}`;
+  };
+  async function loadHotkey() {
+    capturing = false;
+    $('hotkey-change').textContent = '바꾸기';
+    const st = await api.getHotkey();
+    showKeys(st.accel);
+    hotkeyMsg(st.accel && !st.active ? '이 단축키는 지금 다른 프로그램이 쓰고 있어서 동작하지 않아요. 다른 조합으로 바꿔 주세요.' : '', st.accel && !st.active ? 'error' : '');
+  }
+  async function applyHotkey(accel) {
+    const r = await api.setHotkey(accel);
+    if (r.ok) {
+      showKeys(r.accel);
+      hotkeyMsg(r.accel ? '저장했어요! 지금 바로 눌러 보세요.' : '숨기기 단축키를 껐어요.', 'ok');
+    } else {
+      hotkeyMsg(r.error, 'error');
+      const st = await api.getHotkey();
+      showKeys(st.accel);
+    }
+  }
+  // 키보드 이벤트를 Electron 단축키 형식(Ctrl+Alt+H)으로 바꾼다
+  function toAccelerator(e) {
+    const mods = [];
+    if (e.ctrlKey) mods.push('CommandOrControl');
+    if (e.altKey) mods.push('Alt');
+    if (e.shiftKey) mods.push('Shift');
+    if (e.metaKey) mods.push('Super');
+    const c = e.code;
+    let key = null;
+    if (/^Key[A-Z]$/.test(c)) key = c.slice(3);
+    else if (/^Digit[0-9]$/.test(c)) key = c.slice(5);
+    else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(c)) key = c;
+    else if (c === 'Space') key = 'Space';
+    else if (c.startsWith('Arrow')) key = c.slice(5);
+    else if (['Home', 'End', 'PageUp', 'PageDown', 'Insert', 'Delete'].includes(c)) key = c;
+    return { mods, key };
+  }
+  $('hotkey-change').addEventListener('click', () => {
+    capturing = true;
+    $('hotkey-change').textContent = '누르는 중…';
+    const box = $('hotkey-keys');
+    box.textContent = '';
+    const w = document.createElement('span');
+    w.className = 'waiting';
+    w.textContent = '원하는 키 조합을 눌러 주세요 (Esc: 취소)';
+    box.append(w);
+    hotkeyMsg('');
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!capturing) return;
+    e.preventDefault();
+    if (e.code === 'Escape') return loadHotkey();
+    const { mods, key } = toAccelerator(e);
+    if (!key) {
+      if (mods.length) showKeys(mods.join('+') + '+…');
+      return;
+    }
+    if (!mods.length) return hotkeyMsg('Ctrl · Alt · Shift 중 하나 이상과 함께 눌러 주세요.', 'error');
+    capturing = false;
+    $('hotkey-change').textContent = '바꾸기';
+    applyHotkey([...mods, key].join('+'));
+  });
+  $('hotkey-reset').addEventListener('click', () => applyHotkey('CommandOrControl+Alt+H'));
+  $('hotkey-clear').addEventListener('click', () => applyHotkey(''));
+
+  // --- 나가기 ---------------------------------------------------------------------
+  let quitChar = null;
+  function drawQuitFace(dt) {
+    const { ctx, w, h } = fit($('quit-face'));
+    const cfg = current() || settings.characters[0];
+    if (!quitChar || quitChar.cfg !== cfg) {
+      quitChar = new Character(cfg, { x: w / 2, state: 'wave' });
+      quitChar.dir = 1;
+    }
+    quitChar.globalSize = 1;
+    quitChar.globalSize = (h - 8) / quitChar.height;
+    if (quitChar.state !== 'wave') quitChar.setState('wave', 99);
+    quitChar.update(dt, { width: w, speed: 0 });
+    quitChar.x = w / 2;
+    ctx.clearRect(0, 0, w, h);
+    quitChar.draw(ctx, h - 3);
+  }
+  $('quit-open').addEventListener('click', () => ($('quit-modal').hidden = false));
+  $('quit-cancel').addEventListener('click', () => ($('quit-modal').hidden = true));
+  $('quit-ok').addEventListener('click', () => api.quitApp());
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('quit-modal').hidden) $('quit-modal').hidden = true;
+  });
 
   // --- 미리보기 -------------------------------------------------------------
   const stage = $('preview');
@@ -264,12 +442,15 @@
       preview.x += w / 2 - half;
 
       sctx.clearRect(0, 0, w, h);
-      sctx.fillStyle = '#b8a888';
+      sctx.fillStyle = '#E2C48C';
       sctx.fillRect(0, ground, w, h - ground);
-      sctx.fillStyle = 'rgba(0,0,0,.12)';
+      sctx.fillStyle = '#2B2A33';
       sctx.fillRect(0, ground, w, 3);
       preview.draw(sctx, ground);
     }
+
+    if (view === 'home') drawHome(dt);
+    if (!$('quit-modal').hidden) drawQuitFace(dt);
 
     for (const m of miniChars.values()) {
       if (!m.canvas?.isConnected) continue;
@@ -291,7 +472,14 @@
     settings = s;
     render();
   });
-  api.onSelect((id) => select(id));
+  api.onSelect((id) => {
+    if (id) {
+      select(id);
+      go('custom');
+    } else if (view === 'hotkey') {
+      loadHotkey();
+    }
+  });
 
   api.getSettings().then((s) => {
     settings = s;

@@ -192,6 +192,8 @@
     sleep: [7, 14], // 선 채로 꾸벅꾸벅
     sitsleep: [8, 18], // 앉은 채로 꾸벅꾸벅
     seek: [15, 15],
+    goto: [30, 30], // 지시받은 자리로 걸어가기 (도착하면 끝난다)
+    marvel: [1.6, 3], // 오뚜기를 보며 신기해하는 몸짓 하나
     pickup: [0.9, 0.9],
     drop: [0.8, 0.8],
   };
@@ -234,6 +236,12 @@
       if (this.plop) blend = 0.26;
       this.state = state;
       this.stateT = 0;
+      if (state === 'marvel') {
+        const g = ['point', 'handsup', 'scratch', 'clap', 'wave', 'point', 'clap'];
+        let next = g[Math.floor(Math.random() * g.length)];
+        if (next === this.gesture) next = g[(g.indexOf(next) + 1) % g.length];
+        this.gesture = next;
+      }
       const d = DURATIONS[state] || [1, 1];
       this.stateDur = duration ?? rand(d[0], d[1]);
       this.fromPose = this.lastPose;
@@ -243,6 +251,23 @@
     }
 
     // --- 사용자 조작 ------------------------------------------------------------
+    // 바깥(오뚜기 이벤트)에서 주는 지시: { x, face } 자리로 가서 신기해하기,
+    // { fire: true, item } 신호탄 쏘기(필요하면 신호탄 주워 오기). null 이면 해제.
+    setDirective(d) {
+      this.directive = d;
+      const interruptible = ['idle', 'walk', 'sit', 'sitsleep', 'sleep', 'look', 'wave', 'marvel', 'goto', 'seek', 'cheer'];
+      if (interruptible.includes(this.state) && this.h <= 0) this.stateT = this.stateDur;
+    }
+
+    // 오뚜기를 클릭하면 다 같이 폴짝 뛰며 손을 들었다 내렸다 한다
+    celebrate() {
+      if (['drag', 'air', 'bump', 'dizzy', 'pickup', 'drop'].includes(this.state) || this.h > 0.5) return;
+      this.vy = rand(330, 430);
+      this.vx = 0;
+      this.setState('air', 99, 0.1);
+      this.afterLand = 'cheer';
+    }
+
     poke() {
       if (this.state === 'drag' || this.h > 0.5) return;
       if (this.state === 'bump' || this.state === 'dizzy') return;
@@ -282,6 +307,23 @@
     // --- 행동 -------------------------------------------------------------------
     pickNext(world) {
       if (world.paused) return 'idle';
+      const d = this.directive;
+      if (d) {
+        if (d.fire && !d.fired) {
+          if (this.item?.type === 'flare') return 'use';
+          if (this.item) return 'drop'; // 다른 걸 들고 있으면 내려놓고 신호탄을 가지러 간다
+          const it = d.item;
+          if (it && !it.heldBy && it.h <= 0 && world.items?.includes(it)) {
+            this.target = it;
+            return 'seek';
+          }
+        }
+        if (d.x != null) {
+          if (Math.abs(this.x - d.x) > 4) return 'goto';
+          this.dir = d.face;
+          return 'marvel';
+        }
+      }
       const r = Math.random();
       if (this.item) {
         if (this.t > this.carryUntil) return 'drop';
@@ -402,7 +444,27 @@
         this.slide *= Math.exp(-6 * dt);
       }
 
-      if (world.paused && ['walk', 'sit', 'seek'].includes(this.state)) this.setState('idle');
+      if (world.paused && ['walk', 'sit', 'seek', 'goto'].includes(this.state)) this.setState('idle');
+
+      // 지시받은 자리로 걸어가는 중
+      if (this.state === 'goto') {
+        const d = this.directive;
+        if (!d || d.x == null) {
+          this.setState('idle');
+        } else {
+          const tx = clamp(d.x, minX, maxX);
+          const dx = tx - this.x;
+          if (Math.abs(dx) < 3) {
+            this.x = tx;
+            this.dir = d.face;
+            this.setState('marvel');
+          } else {
+            this.dir = Math.sign(dx);
+            this.x += this.dir * Math.min(Math.abs(dx), WALK_SPEED * s * speed * 1.3 * dt);
+            this.phase += dt * 9.4 * Math.sqrt(speed);
+          }
+        }
+      }
 
       // 아이템을 주우러 가는 중
       if (this.state === 'seek') {
@@ -443,6 +505,7 @@
       if (this.state === 'use' && this.item?.type === 'flare' && !this.fired && this.stateT > 0.7) {
         this.fired = true;
         this.fireFlare(world);
+        if (this.directive?.fire) this.directive.fired = true;
       }
       if (this.state !== 'use') this.fired = false;
 
@@ -526,7 +589,7 @@
       const st = this.state;
       const ph = this.phase;
       const t = this.t;
-      const walking = st === 'walk' || st === 'seek';
+      const walking = st === 'walk' || st === 'seek' || st === 'goto';
       const onButt = st === 'bump' || st === 'dizzy';
       const sleeping = st === 'sleep' || st === 'sitsleep';
       const sitting = st === 'sit' || st === 'sitsleep';
@@ -570,6 +633,9 @@
         P.headTilt = -Math.sin(ph - 0.9) * 0.06;
       } else if (st === 'cheer') {
         bob = -Math.abs(Math.sin(this.stateT * 12)) * 3;
+      } else if (st === 'marvel') {
+        bob = -Math.abs(Math.sin(t * 4)) * 1.5; // 들썩들썩
+        P.headTilt = this.gesture === 'scratch' ? 0.18 : Math.sin(t * 1.3) * 0.12;
       } else if (sleeping) {
         bob = Math.sin(t * 1.4) * 1.2; // 느리고 깊은 숨
       } else if (!dangling && !airborne && !onButt) {
@@ -708,9 +774,38 @@
         if (dangling) {
           hand = { x: side * (T + 8) + Math.sin(t * 6 + side) * 3, y: headY - H - 10 };
           ctrl = { x: side * (T + 16), y: torsoY - 4 };
+        } else if (st === 'cheer') {
+          // 손을 번쩍 들었다 내렸다
+          const up = 0.5 + 0.5 * Math.sin(this.stateT * 11 + (side > 0 ? 0 : 0.6));
+          hand = { x: side * R * (0.95 + 0.15 * (1 - up)), y: torsoY + 2 - up * (torsoY + 2 - (headY - H - 6)) };
+          ctrl = { x: side * R * 1.35, y: torsoY + 2 };
         } else if (cheering) {
           hand = { x: side * R * 0.95, y: headY - H - 4 + Math.sin(t * 14 + side) * 3 };
           ctrl = { x: side * R * 1.35, y: torsoY + 2 };
+        } else if (st === 'marvel') {
+          // 오뚜기를 보며 이것저것 손짓한다
+          const g = this.gesture;
+          const w = Math.sin(this.stateT * 9);
+          if (g === 'point' && side > 0) {
+            hand = { x: R * 1.55, y: torsoY - 6 + w * 1.5 }; // 손가락질하듯 앞으로 쭉
+            ctrl = { x: R * 1.15, y: torsoY + 2 };
+          } else if (g === 'handsup') {
+            hand = { x: side * R * 0.9, y: headY - H - 2 + Math.sin(this.stateT * 7 + side) * 4 };
+            ctrl = { x: side * R * 1.35, y: torsoY + 2 };
+          } else if (g === 'scratch' && side > 0) {
+            hand = { x: -H * 0.1 + w * 2, y: headY - H * 0.95 }; // 갸웃하며 머리를 긁적
+            ctrl = { x: R * 0.9, y: headY - 2 };
+          } else if (g === 'clap') {
+            const open = Math.abs(Math.sin(this.stateT * 9));
+            hand = { x: R * 1.05 + side * (1 + open * 6), y: torsoY + T * 0.6 };
+            ctrl = { x: side * R * 0.9 + R * 0.4, y: torsoY + T * 1.4 };
+          } else if (g === 'wave' && side > 0) {
+            hand = { x: R * 0.95 + w * 6, y: headY - H - 8 + Math.abs(w) * 2 };
+            ctrl = { x: R * 1.4, y: torsoY + 2 };
+          } else {
+            hand = { x: side * R * 1.28, y: bodyY - R * 0.38 + Math.sin(t * 4 + side) };
+            ctrl = { x: side * R * 1.2, y: torsoY + 2 };
+          }
         } else if (st === 'wave' && side === waveSide) {
           const w = Math.sin(this.stateT * 11);
           hand = { x: side * (R * 0.95 + w * 6), y: headY - H - 8 + Math.abs(w) * 2 };

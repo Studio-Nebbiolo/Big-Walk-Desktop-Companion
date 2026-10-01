@@ -17,4 +17,8 @@ contextBridge.exposeInMainWorld('companion', {
   showCharacterMenu: (charId) => ipcRenderer.send('character:menu', charId),
   copyText: (text) => ipcRenderer.send('clipboard:write', text),
   readClipboard: () => ipcRenderer.invoke('clipboard:read'),
+  collectDaruma: () => ipcRenderer.send('daruma:collected'),
+  getHotkey: () => ipcRenderer.invoke('hotkey:get'),
+  setHotkey: (accel) => ipcRenderer.invoke('hotkey:set', accel),
+  quitApp: () => ipcRenderer.send('app:quit'),
 });
