@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, clipboard, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, clipboard, globalShortcut, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { PALETTE, PARTS, BY_ID, randomColors } = require('./shared/palette');
@@ -6,6 +6,7 @@ const ShareCode = require('./shared/sharecode');
 
 const STAGE_HEIGHT = 320; // 작업표시줄 위로 캐릭터가 뛰어놀 공간
 const CURSOR_POLL_MS = 50;
+const MOUSE_REASSERT_MS = 1000; // 창의 클릭 통과 상태를 주기적으로 다시 지정한다
 const DEFAULT_HOTKEY = 'CommandOrControl+Alt+H';
 const HOTKEY_RE = /^((CommandOrControl|Ctrl|Alt|Shift|Super)\+){1,3}([A-Z0-9]|F([1-9]|1[0-9]|2[0-4])|Space|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|Delete)$/;
 
@@ -170,18 +171,57 @@ function createCompanion() {
   startCursorPolling();
 }
 
+// 커서 위치는 클릭 통과 여부와 상관없이 항상 알려준다. 창의 실제 상태가 렌더러가 아는 것과
+// 어긋나도(잠금 화면을 다녀온 뒤 등) 렌더러가 매번 다시 판단해 바로잡을 수 있다.
 function startCursorPolling() {
   clearInterval(cursorTimer);
   let wasInside = false;
+  let lastAssert = 0;
   cursorTimer = setInterval(() => {
-    if (!companionWin || companionWin.isDestroyed() || !ignoringMouse) return;
+    if (!companionWin || companionWin.isDestroyed() || !companionWin.isVisible()) return;
     const p = screen.getCursorScreenPoint();
     const b = companionWin.getBounds();
     const inside = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
     if (inside) companionWin.webContents.send('cursor', { x: p.x - b.x, y: p.y - b.y });
     else if (wasInside) companionWin.webContents.send('cursor', null);
     wasInside = inside;
+    // Windows 가 창 상태를 몰래 바꿔 놓아도 1초 안에 원래대로 돌아오게 다시 지정한다
+    const now = Date.now();
+    if (now - lastAssert > MOUSE_REASSERT_MS) {
+      lastAssert = now;
+      companionWin.setIgnoreMouseEvents(ignoringMouse, { forward: true });
+    }
   }, CURSOR_POLL_MS);
+}
+
+// 잠금(Win+L)·절전에서 돌아오면 Windows 가 투명 창의 마우스 처리 상태를 망가뜨릴 수 있다.
+// 창을 숨겼다 다시 보여 창 스타일을 새로 적용하고, 클릭 통과와 항상 위를 처음부터 다시 건다.
+// 렌더러에도 알려서 기억하던 마우스 상태(호버·드래그)를 초기화한다.
+function resetCompanionMouse() {
+  if (!companionWin || companionWin.isDestroyed()) return;
+  const wasVisible = companionWin.isVisible();
+  ignoringMouse = true;
+  companionWin.setIgnoreMouseEvents(false);
+  companionWin.setIgnoreMouseEvents(true, { forward: true });
+  if (wasVisible) {
+    companionWin.hide();
+    companionWin.showInactive();
+  }
+  companionWin.setAlwaysOnTop(true, 'screen-saver');
+  companionWin.setBounds(stageBounds());
+  companionWin.webContents.send('mouse:reset');
+  startCursorPolling();
+}
+
+function watchPower() {
+  // 잠금 해제 직후에는 데스크톱 전환이 덜 끝났을 수 있어서, 바로 한 번 + 조금 뒤 한 번 더
+  const reset = () => {
+    resetCompanionMouse();
+    setTimeout(resetCompanionMouse, 1500);
+  };
+  powerMonitor.on('unlock-screen', reset);
+  powerMonitor.on('resume', reset);
+  powerMonitor.on('user-did-become-active', reset);
 }
 
 // --- 설정 창 -----------------------------------------------------------------
@@ -221,7 +261,10 @@ let registeredHotkey = null;
 function toggleCompanion() {
   if (!companionWin || companionWin.isDestroyed()) return;
   if (companionWin.isVisible()) companionWin.hide();
-  else companionWin.showInactive();
+  else {
+    companionWin.showInactive();
+    resetCompanionMouse();
+  }
   refreshTrayMenu();
 }
 
@@ -264,7 +307,10 @@ function refreshTrayMenu() {
         click: (item) => {
           if (!companionWin) return;
           if (item.checked) companionWin.hide();
-          else companionWin.showInactive();
+          else {
+            companionWin.showInactive();
+            resetCompanionMouse();
+          }
         },
       },
       { type: 'separator' },
@@ -363,6 +409,7 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform === 'darwin') app.dock?.hide();
     settings = loadSettings();
     createCompanion();
+    watchPower();
     registerHotkey(settings.hideHotkey);
     createTray();
     if (process.env.BIG_WALK_OPEN_SETTINGS) openSettings();

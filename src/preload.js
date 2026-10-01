@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('companion', {
   onSettings: on('settings:changed'),
   onSelect: on('settings:select'),
   onCursor: on('cursor'),
+  onMouseReset: on('mouse:reset'),
   openSettings: (charId) => ipcRenderer.send('settings:open', charId),
   setIgnoreMouse: (ignore) => ipcRenderer.send('mouse:ignore', ignore),
   showCharacterMenu: (charId) => ipcRenderer.send('character:menu', charId),

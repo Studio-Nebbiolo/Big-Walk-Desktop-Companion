@@ -128,6 +128,28 @@
     updateHover(p.x, p.y);
   });
 
+  // 버튼을 뗀 이벤트를 놓치면(누른 채 Alt+Tab·Win+L, 다른 창이 앞에 뜸 등) 드래그가 영원히 남아
+  // 마우스 처리가 멈춘다. 그런 신호가 오면 들고 있던 친구를 그 자리에서 놓는다.
+  function cancelDrag() {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    if (d.moved) d.char.release(0, 0);
+    canvas.style.cursor = 'default';
+  }
+  canvas.addEventListener('pointercancel', cancelDrag);
+  canvas.addEventListener('lostpointercapture', () => drag && setTimeout(cancelDrag, 0));
+  window.addEventListener('blur', cancelDrag);
+
+  // 잠금 해제·절전 복귀 뒤 메인 프로세스가 창을 클릭 통과 상태로 처음부터 다시 걸었다
+  api.onMouseReset(() => {
+    cancelDrag();
+    ignoring = true;
+    hover = null;
+    mouse = null;
+    canvas.style.cursor = 'default';
+  });
+
   canvas.addEventListener('pointerleave', () => {
     if (drag) return;
     mouse = null;
@@ -354,6 +376,16 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     ctx.clearRect(0, 0, W, H);
+    // 한 프레임에서 오류가 나도 다음 프레임은 꼭 예약한다 (안 그러면 친구들이 영원히 굳는다)
+    try {
+      step(dt, now);
+    } catch (err) {
+      console.error(err);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function step(dt, now) {
     if (settings) {
       updateItems(dt, now);
       updateDaruma(dt, now);
@@ -368,7 +400,6 @@
       const order = chars.slice().sort((a, b) => (a === drag?.char) - (b === drag?.char));
       for (const c of order) c.draw(ctx, groundY());
     }
-    requestAnimationFrame(frame);
   }
 
   // 테스트·디버그용: 오뚜기 이벤트를 바로 일으키거나 상태를 들여다본다
