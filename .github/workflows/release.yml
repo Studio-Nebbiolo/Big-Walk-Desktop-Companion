@@ -1,4 +1,6 @@
-# 버전 태그(v*)를 올리면 Windows에서 exe를 빌드해 GitHub Releases에 올린다.
+# Windows에서 exe를 빌드해 GitHub Releases에 올린다.
+# - 버전 태그(v*)를 푸시하거나
+# - Actions 탭에서 수동 실행(workflow_dispatch)하면 package.json 의 version 으로 v<버전> 태그와 릴리스를 만든다.
 name: Release
 
 on:
@@ -23,25 +25,23 @@ jobs:
 
       - run: npm ci
 
+      - name: Read version
+        id: ver
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Build Windows exe (portable + installer)
         run: npx electron-builder --win --x64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.ver.outputs.version) }}
+          name: Big Walk Companion v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
           files: |
             dist/BigWalkCompanion-*-portable.exe
             dist/BigWalkCompanion-*-setup.exe
           generate_release_notes: true
-
-      - name: Keep exe as workflow artifact (manual runs)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: BigWalkCompanion-windows
-          path: |
-            dist/BigWalkCompanion-*-portable.exe
-            dist/BigWalkCompanion-*-setup.exe
