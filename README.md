@@ -23,7 +23,7 @@ npm start
 
 ### 릴리스
 
-`package.json` 의 `version` 을 올리고 같은 버전의 태그(`v0.2.0` 등)를 푸시하면,
+`package.json` 의 `version` 을 올리고 같은 버전의 태그(`v0.2.0` 등)를 푸시하거나 Actions 탭에서 Release 워크플로를 수동 실행하면,
 GitHub Actions(`.github/workflows/release.yml`)가 Windows 에서 exe 를 빌드해 Releases 에 올린다.
 
 ## 사용법
