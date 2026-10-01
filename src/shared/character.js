@@ -1174,15 +1174,15 @@
       ctx.lineCap = 'round';
       if (P.spiral > 0.5) {
         // 헤롱헤롱: 빙글빙글 도는 소용돌이 눈
-        const turns = 1.6; // 덜 빽빽한 달팽이
+        const turns = 1.6; // 덜 빽빽한 달팽이 (흰자 안쪽에만 그린다)
         const rot = -this.t * 8;
-        ctx.lineWidth = 1.9;
+        ctx.lineWidth = 1.45;
         ctx.beginPath();
         for (let i = 0; i <= 60; i++) {
           const k = i / 60;
           const a = k * turns * Math.PI * 2 + rot;
-          const x = ex + Math.cos(a) * erx * 0.82 * k;
-          const y = ey + Math.sin(a) * ery * 0.82 * k;
+          const x = ex + Math.cos(a) * erx * 0.58 * k;
+          const y = ey + Math.sin(a) * ery * 0.58 * k;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
