@@ -8,6 +8,7 @@ const on = (channel) => (cb) => {
 
 contextBridge.exposeInMainWorld('companion', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
+  getSystemLocales: () => ipcRenderer.invoke('locale:get'),
   saveSettings: (s) => ipcRenderer.send('settings:save', s),
   onSettings: on('settings:changed'),
   onSelect: on('settings:select'),

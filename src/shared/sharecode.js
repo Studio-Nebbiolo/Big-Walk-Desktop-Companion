@@ -37,37 +37,38 @@
   }
 
   // 성공하면 { name, colors }, 실패하면 { error } 를 돌려준다.
-  function decode(text) {
+  // error 는 i18n.js 의 문구 키다 (화면 쪽에서 언어에 맞게 바꾼다). 이름이 비어 있으면 fallbackName.
+  function decode(text, fallbackName = 'New friend') {
     const raw = String(text || '').replace(/\s+/g, '');
-    if (!raw) return { error: 'Please enter a code.' };
+    if (!raw) return { error: 'share.empty' };
     const head = [PREFIX, ...LEGACY_PREFIXES].find((p) => raw.slice(0, p.length).toUpperCase() === p);
-    if (!head) return { error: `That isn\'t a friend code. It should start with "${PREFIX}".` };
+    if (!head) return { error: 'share.prefix', prefix: PREFIX };
     const payload = raw.slice(head.length);
-    if (!payload) return { error: 'The code is too short. Make sure you copied all of it.' };
-    if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { error: 'The code contains characters that aren\'t allowed.' };
+    if (!payload) return { error: 'share.short' };
+    if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { error: 'share.chars' };
     let bytes;
     try {
       bytes = fromBase64Url(payload);
     } catch {
-      return { error: 'The code is damaged. Please copy it again.' };
+      return { error: 'share.damaged' };
     }
     const n = Palette.PARTS.length;
-    if (bytes.length < n + 1) return { error: 'The code is too short. Make sure you copied all of it.' };
+    if (bytes.length < n + 1) return { error: 'share.short' };
     const body = bytes.slice(0, -1);
-    if (checksum(body) !== bytes[bytes.length - 1]) return { error: 'The code doesn\'t check out. Please look for typos.' };
+    if (checksum(body) !== bytes[bytes.length - 1]) return { error: 'share.checksum' };
     const colors = {};
     for (let i = 0; i < n; i++) {
       const c = Palette.PALETTE[body[i]];
-      if (!c) return { error: 'The code contains an unknown color.' };
+      if (!c) return { error: 'share.color' };
       colors[Palette.PARTS[i].id] = c.id;
     }
     let name;
     try {
       name = new TextDecoder('utf-8', { fatal: true }).decode(body.slice(n));
     } catch {
-      return { error: 'The name part is damaged.' };
+      return { error: 'share.name' };
     }
-    name = Array.from(name.trim()).slice(0, MAX_NAME).join('') || 'New friend';
+    name = Array.from(name.trim()).slice(0, MAX_NAME).join('') || fallbackName;
     return { name, colors };
   }
 

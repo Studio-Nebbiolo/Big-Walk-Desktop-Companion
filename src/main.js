@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { PALETTE, PARTS, BY_ID, randomColors } = require('./shared/palette');
 const ShareCode = require('./shared/sharecode');
+const I18n = require('./shared/i18n');
 
 const STAGE_HEIGHT = 320; // 작업표시줄 위로 캐릭터가 뛰어놀 공간
 const CURSOR_POLL_MS = 50;
@@ -32,20 +33,43 @@ const DEFAULT_SETTINGS = {
   hideHotkey: DEFAULT_HOTKEY,
   paused: false,
   launchAtStartup: false,
-  characters: [
-    { id: 'c1', name: 'Sunny', colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
-    { id: 'c2', name: 'Blue', colors: { head: 'royal', body: 'rust', legs: 'amber' } },
-    { id: 'c3', name: 'Tangerine', colors: { head: 'orange', body: 'royal', legs: 'lime' } },
-    { id: 'c4', name: 'Sprout', colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
-  ],
+  language: 'auto', // 'auto' = Windows 표시 언어를 따른다
 };
+
+// --- 언어 ------------------------------------------------------------------
+
+// Windows 표시 언어 목록 (예: ['pt-BR', 'en-US']). 앱이 준비된 뒤에만 정확하다.
+function systemLocales() {
+  const list = [];
+  try {
+    list.push(...(app.getPreferredSystemLanguages?.() || []));
+  } catch {}
+  try {
+    list.push(app.getLocale());
+  } catch {}
+  return list;
+}
+
+// 지금 화면에 쓸 번역 함수
+const tr = () => I18n.translator(I18n.resolve(settings?.language, systemLocales()));
+
+// 처음 실행할 때의 친구 넷: 이름은 그때의 언어로 짓는다 (그 뒤엔 사용자 이름이라 바뀌지 않는다)
+function defaultCharacters() {
+  const names = tr().names();
+  return [
+    { id: 'c1', name: names[0], colors: { head: 'amber', body: 'gray', legs: 'crimson' } },
+    { id: 'c2', name: names[1], colors: { head: 'royal', body: 'rust', legs: 'amber' } },
+    { id: 'c3', name: names[2], colors: { head: 'orange', body: 'royal', legs: 'lime' } },
+    { id: 'c4', name: names[3], colors: { head: 'green', body: 'orange', legs: 'charcoal' } },
+  ];
+}
 
 const clampNum = (v, lo, hi, def) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, +v)) : def);
 
 // 설정 창에서 온 값은 그대로 믿지 않고 팔레트에 있는 색만 남긴다.
 function sanitize(input) {
   const s = input && typeof input === 'object' ? input : {};
-  const chars = Array.isArray(s.characters) ? s.characters : DEFAULT_SETTINGS.characters;
+  const chars = Array.isArray(s.characters) ? s.characters : defaultCharacters();
   const seen = new Set();
   return {
     speed: clampNum(s.speed, 0.3, 3, 1),
@@ -58,6 +82,7 @@ function sanitize(input) {
     hideHotkey: typeof s.hideHotkey === 'string' && (s.hideHotkey === '' || HOTKEY_RE.test(s.hideHotkey)) ? s.hideHotkey : DEFAULT_HOTKEY,
     paused: !!s.paused,
     launchAtStartup: !!s.launchAtStartup,
+    language: I18n.isLang(s.language) ? s.language : 'auto',
     characters: chars.slice(0, 20).map((c, i) => {
       let id = typeof c.id === 'string' && c.id ? c.id.slice(0, 40) : `c${Date.now()}${i}`;
       while (seen.has(id)) id += 'x';
@@ -70,7 +95,7 @@ function sanitize(input) {
       for (const p of PARTS) colors[p.id] = BY_ID[src[p.id]] ? src[p.id] : fallback[p.id];
       return {
         id,
-        name: String(c.name ?? `Friend ${i + 1}`).slice(0, 20),
+        name: String(c.name ?? tr()('friendN', { n: i + 1 })).slice(0, 20),
         colors,
       };
     }),
@@ -280,26 +305,27 @@ function registerHotkey(accel) {
     ok = false;
   }
   if (ok) registeredHotkey = accel;
-  return ok ? { ok: true } : { ok: false, error: 'Another program is already using this shortcut. Please pick a different combination.' };
+  return ok ? { ok: true } : { ok: false, error: tr()('hotkey.taken') };
 }
 
 // --- 트레이 --------------------------------------------------------------------
 
 function refreshTrayMenu() {
   if (!tray) return;
+  const t = tr();
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open menu…', click: () => openSettings() },
-      { label: 'Add a new friend', click: addRandomCharacter, enabled: settings.characters.length < 20 },
+      { label: t('tray.open'), click: () => openSettings() },
+      { label: t('tray.add'), click: addRandomCharacter, enabled: settings.characters.length < 20 },
       { type: 'separator' },
       {
-        label: 'Stay in place',
+        label: t('tray.pause'),
         type: 'checkbox',
         checked: settings.paused,
         click: (item) => updateSettings({ ...settings, paused: item.checked }),
       },
       {
-        label: 'Hide',
+        label: t('tray.hide'),
         accelerator: registeredHotkey || undefined,
         registerAccelerator: false,
         type: 'checkbox',
@@ -314,9 +340,9 @@ function refreshTrayMenu() {
         },
       },
       { type: 'separator' },
-      { label: `Daruma collected: ${settings.darumaCount}`, enabled: false },
+      { label: t('tray.collected', { n: settings.darumaCount }), enabled: false },
       { type: 'separator' },
-      { label: 'Quit', click: () => app.quit() },
+      { label: t('tray.quit'), click: () => app.quit() },
     ]),
   );
 }
@@ -328,7 +354,7 @@ function addRandomCharacter() {
     ...settings,
     characters: [
       ...settings.characters,
-      { id: `c${Date.now()}`, name: `Friend ${n}`, colors: randomColors() },
+      { id: `c${Date.now()}`, name: tr()('friendN', { n }), colors: randomColors() },
     ],
   });
 }
@@ -345,6 +371,7 @@ function createTray() {
 
 ipcMain.handle('settings:get', () => settings);
 ipcMain.handle('palette:get', () => PALETTE);
+ipcMain.handle('locale:get', () => systemLocales());
 ipcMain.on('settings:save', (_e, next) => updateSettings(next));
 ipcMain.on('settings:open', (_e, charId) => openSettings(charId));
 ipcMain.on('daruma:collected', () => updateSettings({ ...settings, darumaCount: settings.darumaCount + 1 }));
@@ -352,7 +379,7 @@ ipcMain.on('app:quit', () => app.quit());
 ipcMain.handle('hotkey:get', () => ({ accel: settings.hideHotkey, active: registeredHotkey === settings.hideHotkey }));
 ipcMain.handle('hotkey:set', (_e, accel) => {
   const next = String(accel ?? '');
-  if (next && !HOTKEY_RE.test(next)) return { ok: false, error: 'That combination can\'t be used. Press at least one of Ctrl, Alt or Shift together with a letter, number or F key.' };
+  if (next && !HOTKEY_RE.test(next)) return { ok: false, error: tr()('hotkey.invalid') };
   const prev = settings.hideHotkey;
   const r = registerHotkey(next);
   if (!r.ok) {
@@ -379,13 +406,14 @@ ipcMain.on('mouse:ignore', (e, ignore) => {
 ipcMain.on('character:menu', (e, charId) => {
   const c = settings.characters.find((x) => x.id === charId);
   if (!c) return;
+  const t = tr();
   Menu.buildFromTemplate([
     { label: c.name, enabled: false },
     { type: 'separator' },
-    { label: 'Change colors…', click: () => openSettings(charId) },
-    { label: 'Copy share code', click: async () => await clipboard.writeText(ShareCode.encode(c)) },
+    { label: t('ctx.colors'), click: () => openSettings(charId) },
+    { label: t('ctx.copy'), click: async () => await clipboard.writeText(ShareCode.encode(c)) },
     {
-      label: 'Say goodbye (remove)',
+      label: t('ctx.remove'),
       enabled: settings.characters.length > 1,
       click: () => updateSettings({ ...settings, characters: settings.characters.filter((x) => x.id !== charId) }),
     },

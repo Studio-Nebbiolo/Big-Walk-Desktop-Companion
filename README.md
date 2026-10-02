@@ -42,6 +42,7 @@ GitHub Actions(`.github/workflows/release.yml`)가 Windows 에서 exe 를 빌드
 - **우클릭**하면 색 바꾸기 / 공유 코드 복사 / 삭제 메뉴가 나온다.
 - 꾸미기 창에서는 친구마다 **머리 · 몸통(목과 팔) · 다리(아래 공과 다리)** 세 부분의 색을 따로 고른다. 모든 친구는 같은 비율, 같은 크기다.
 - "모두에게 적용"에서 걷는 속도, 전체 크기, 서로 인사하기, 소품, 빨간 오뚜기, 발밑 그림자, 멈추기, 시작 프로그램 등록을 바꾼다.
+- **언어**: 기본은 Windows 표시 언어를 따른다. 지원하는 언어는 영어 · 한국어 · 일본어 · 중국어(간체/번체) · 스페인어 · 포르투갈어 · 프랑스어 · 독일어 · 이탈리아어 · 러시아어이고, 그 밖의 언어면 영어로 보인다. 메뉴 첫 화면 오른쪽 위 🌐 에서 직접 고를 수 있다.
 - 친구는 최대 20명까지. 설정은 사용자 데이터 폴더의 `Big Walk Companion/settings.json` 에 저장된다.
   예전 이름(Magic School Companion)으로 저장된 설정이 있으면 처음 실행할 때 자동으로 옮겨 온다.
 
@@ -70,6 +71,7 @@ GitHub Actions(`.github/workflows/release.yml`)가 Windows 에서 exe 를 빌드
 | `src/shared/character.js` | 캐릭터 행동(상태 머신 · 물리)과 캔버스 그리기 |
 | `src/shared/items.js` | 무전기 · 확성기 · 라디오 · 신호탄 소품과 발밑 그림자 |
 | `src/shared/daruma.js` | 빨간 오뚜기 (흔들림 · 클릭 · 수집 효과) |
+| `src/shared/i18n.js` | 화면 글자 번역 (11개 언어)과 시스템 언어 고르기 |
 | `src/shared/sharecode.js` | 친구 공유 코드 만들기 / 읽기 |
 | `src/renderer/companion.*` | 친구들이 사는 투명 창 (오뚜기 모이기 · 신호탄 미션 포함) |
 | `src/renderer/settings.*` | 메뉴 창 (커스터마이징 · 단축키 · 나가기) |

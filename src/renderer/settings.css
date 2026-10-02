@@ -28,6 +28,11 @@ body {
 
 h1, h2, h3 { margin: 0; font-weight: 900; letter-spacing: -0.01em; }
 
+/* 언어별로 Windows 기본 글꼴을 먼저 고른다 (한자·가나가 중국식/일본식으로 섞이지 않게) */
+:lang(ja) body { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo UI', 'Meiryo', system-ui, sans-serif; }
+:lang(zh-CN) body { font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif; }
+:lang(zh-TW) body { font-family: 'Segoe UI', 'Microsoft JhengHei UI', 'Microsoft JhengHei', system-ui, sans-serif; }
+
 .view[hidden] { display: none !important; }
 
 .card {
@@ -91,6 +96,34 @@ h1, h2, h3 { margin: 0; font-weight: 900; letter-spacing: -0.01em; }
   text-shadow: 0 4px 0 var(--ink);
 }
 .logo span { font-size: 26px; color: var(--yellow); }
+
+/* 언어 고르기: 홈 화면 오른쪽 위 */
+.lang-pick {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border: var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 3px 0 var(--ink);
+  font-size: 16px;
+}
+.lang-pick select {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 4px 2px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.lang-pick select:focus-visible { outline: 3px solid var(--yellow); border-radius: 8px; }
 
 .collect {
   display: flex;

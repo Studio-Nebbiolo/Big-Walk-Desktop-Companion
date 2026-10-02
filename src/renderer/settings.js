@@ -4,8 +4,43 @@
   const $ = (id) => document.getElementById(id);
 
   let settings = null;
+  let systemLocales = [];
+  let t = I18n.translator('en');
   let selectedId = new URLSearchParams(location.search).get('select');
   let part = 'head';
+
+  // --- 언어 -----------------------------------------------------------------
+  // 설정의 언어('auto' 면 Windows 표시 언어)에 맞춰 data-i18n 이 붙은 글자를 모두 바꾼다.
+  let shownLang = null;
+  function localize() {
+    const lang = I18n.resolve(settings.language, systemLocales);
+    if (lang === shownLang) return;
+    shownLang = lang;
+    t = I18n.translator(lang);
+    document.documentElement.lang = lang;
+    for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+    for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
+    for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+    for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+    renderLanguagePicker();
+    if (view === 'hotkey') loadHotkey();
+  }
+
+  function renderLanguagePicker() {
+    const sel = $('language');
+    sel.textContent = '';
+    const auto = new Option(t('lang.auto', { name: I18n.LANGS[I18n.match(systemLocales)] }), 'auto');
+    sel.append(auto);
+    for (const [code, name] of Object.entries(I18n.LANGS)) sel.append(new Option(name, code));
+    sel.value = I18n.isLang(settings.language) ? settings.language : 'auto';
+  }
+
+  $('language').addEventListener('change', (e) => {
+    settings.language = e.target.value;
+    save();
+    localize();
+    render();
+  });
 
   // --- 화면 전환: 홈(메뉴) / 커스터마이징 / 단축키 ---------------------------
   let view = 'home';
@@ -89,7 +124,7 @@
       const dot = document.createElement('span');
       dot.className = 'dot';
       dot.style.background = colorHex(c.colors[p.id]);
-      b.append(dot, p.name);
+      b.append(dot, t(`part.${p.id}`));
       b.onclick = () => {
         part = p.id;
         renderEditor();
@@ -102,8 +137,8 @@
     for (const col of PALETTE) {
       const b = document.createElement('button');
       b.style.background = col.hex;
-      b.title = col.name;
-      b.setAttribute('aria-label', col.name);
+      b.title = t.color(col.id);
+      b.setAttribute('aria-label', t.color(col.id));
       b.classList.toggle('on', c.colors[part] === col.id);
       b.onclick = () => editChar((ch) => (ch.colors[part] = col.id));
       sw.append(b);
@@ -125,6 +160,7 @@
   }
 
   function render() {
+    localize();
     if (!current()) selectedId = settings.characters[0]?.id;
     renderList();
     renderEditor();
@@ -158,7 +194,7 @@
     const id = `c${Date.now()}`;
     settings.characters.push({
       id,
-      name: `Friend ${settings.characters.length + 1}`,
+      name: t('friendN', { n: settings.characters.length + 1 }),
       colors: randomColors(),
     });
     selectedId = id;
@@ -171,9 +207,9 @@
   let copiedTimer = null;
   $('share-copy').addEventListener('click', () => {
     api.copyText($('share-code').value);
-    $('share-copy').textContent = 'Copied ✓';
+    $('share-copy').textContent = t('copied');
     clearTimeout(copiedTimer);
-    copiedTimer = setTimeout(() => ($('share-copy').textContent = 'Copy'), 1500);
+    copiedTimer = setTimeout(() => ($('share-copy').textContent = t('copy')), 1500);
   });
   $('share-code').addEventListener('focus', (e) => e.target.select());
 
@@ -203,9 +239,9 @@
     if (e.key === 'Escape') toggleImport(false);
   });
   $('import-add').addEventListener('click', () => {
-    if (settings.characters.length >= 20) return importMsg('You can have up to 20 friends.', 'error');
-    const r = ShareCode.decode($('import-code').value);
-    if (r.error) return importMsg(r.error, 'error');
+    if (settings.characters.length >= 20) return importMsg(t('custom.max'), 'error');
+    const r = ShareCode.decode($('import-code').value, t('newFriend'));
+    if (r.error) return importMsg(t(r.error, r), 'error');
     const id = `c${Date.now()}`;
     settings.characters.push({ id, name: r.name, colors: r.colors });
     selectedId = id;
@@ -284,7 +320,7 @@
     if (!accel) {
       const span = document.createElement('span');
       span.className = 'off';
-      span.textContent = 'No shortcut set';
+      span.textContent = t('hotkey.none');
       box.append(span);
       return;
     }
@@ -307,16 +343,16 @@
   };
   async function loadHotkey() {
     capturing = false;
-    $('hotkey-change').textContent = 'Change';
+    $('hotkey-change').textContent = t('hotkey.change');
     const st = await api.getHotkey();
     showKeys(st.accel);
-    hotkeyMsg(st.accel && !st.active ? 'Another program is using this shortcut right now, so it won\'t work. Please choose a different combination.' : '', st.accel && !st.active ? 'error' : '');
+    hotkeyMsg(st.accel && !st.active ? t('hotkey.busy') : '', st.accel && !st.active ? 'error' : '');
   }
   async function applyHotkey(accel) {
     const r = await api.setHotkey(accel);
     if (r.ok) {
       showKeys(r.accel);
-      hotkeyMsg(r.accel ? 'Saved! Try pressing it now.' : 'The hide shortcut is off.', 'ok');
+      hotkeyMsg(r.accel ? t('hotkey.saved') : t('hotkey.cleared'), 'ok');
     } else {
       hotkeyMsg(r.error, 'error');
       const st = await api.getHotkey();
@@ -342,12 +378,12 @@
   }
   $('hotkey-change').addEventListener('click', () => {
     capturing = true;
-    $('hotkey-change').textContent = 'Listening…';
+    $('hotkey-change').textContent = t('hotkey.listening');
     const box = $('hotkey-keys');
     box.textContent = '';
     const w = document.createElement('span');
     w.className = 'waiting';
-    w.textContent = 'Press the key combination you want (Esc to cancel)';
+    w.textContent = t('hotkey.prompt');
     box.append(w);
     hotkeyMsg('');
   });
@@ -360,9 +396,9 @@
       if (mods.length) showKeys(mods.join('+') + '+…');
       return;
     }
-    if (!mods.length) return hotkeyMsg('Press it together with at least one of Ctrl, Alt or Shift.', 'error');
+    if (!mods.length) return hotkeyMsg(t('hotkey.needMod'), 'error');
     capturing = false;
-    $('hotkey-change').textContent = 'Change';
+    $('hotkey-change').textContent = t('hotkey.change');
     applyHotkey([...mods, key].join('+'));
   });
   $('hotkey-reset').addEventListener('click', () => applyHotkey('CommandOrControl+Alt+H'));
@@ -481,7 +517,8 @@
     }
   });
 
-  api.getSettings().then((s) => {
+  Promise.all([api.getSettings(), api.getSystemLocales()]).then(([s, locales]) => {
+    systemLocales = locales || [];
     settings = s;
     render();
     requestAnimationFrame(frame);

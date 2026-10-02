@@ -12,40 +12,44 @@
     <header class="home-head">
       <canvas id="home-stage" class="home-stage" aria-hidden="true"></canvas>
       <h1 class="logo">Big Walk<br /><span>Companion</span></h1>
+      <label class="lang-pick">
+        <span aria-hidden="true">🌐</span>
+        <select id="language" data-i18n-aria="home.language"></select>
+      </label>
     </header>
 
     <div class="collect card">
       <canvas id="collect-icon" class="collect-icon" aria-hidden="true"></canvas>
       <div>
-        <div class="collect-label">Daruma collected</div>
+        <div class="collect-label" data-i18n="home.collected"></div>
         <div class="collect-num"><span id="collect-count">0</span></div>
       </div>
     </div>
 
     <nav class="menu">
-      <button class="menu-btn yellow" data-go="custom"><span class="ico">🎨</span>Customize friends</button>
-      <button class="menu-btn teal" data-go="hotkey"><span class="ico">⌨️</span>Hotkey settings</button>
-      <button class="menu-btn red" id="quit-open"><span class="ico">🚪</span>Quit</button>
+      <button class="menu-btn yellow" data-go="custom"><span class="ico">🎨</span><span data-i18n="home.custom"></span></button>
+      <button class="menu-btn teal" data-go="hotkey"><span class="ico">⌨️</span><span data-i18n="home.hotkey"></span></button>
+      <button class="menu-btn red" id="quit-open"><span class="ico">🚪</span><span data-i18n="home.quit"></span></button>
     </nav>
   </section>
 
   <!-- 캐릭터 커스터마이징 -->
   <section id="view-custom" class="view custom" hidden>
     <div class="topbar">
-      <button class="back" data-go="home">← Menu</button>
-      <h2>Customize friends</h2>
+      <button class="back" data-go="home" data-i18n="back"></button>
+      <h2 data-i18n="home.custom"></h2>
     </div>
     <div class="custom-body">
       <aside class="sidebar card">
         <ul id="char-list" class="char-list"></ul>
-        <button id="add-char" class="btn yellow">＋ New friend</button>
-        <button id="import-open" class="btn">🔗 Add friend from code</button>
+        <button id="add-char" class="btn yellow" data-i18n="custom.new"></button>
+        <button id="import-open" class="btn" data-i18n="custom.import"></button>
         <div id="import-box" class="import-box" hidden>
           <input id="import-code" type="text" placeholder="BW1-..." spellcheck="false" autocomplete="off" />
-          <button id="import-paste" class="btn small">📋 Paste</button>
+          <button id="import-paste" class="btn small" data-i18n="custom.paste"></button>
           <div class="row tight">
-            <button id="import-cancel" class="btn small">Cancel</button>
-            <button id="import-add" class="btn yellow small">Add</button>
+            <button id="import-cancel" class="btn small" data-i18n="cancel"></button>
+            <button id="import-add" class="btn yellow small" data-i18n="add"></button>
           </div>
           <p id="import-msg" class="msg" role="status"></p>
         </div>
@@ -53,20 +57,20 @@
 
       <main class="editor">
         <section class="stage-wrap">
-          <canvas id="preview" class="stage" title="Click to make them jump"></canvas>
+          <canvas id="preview" class="stage" data-i18n-title="custom.preview"></canvas>
         </section>
 
         <section class="panel card" id="char-panel">
           <label class="field">
-            <span>Name</span>
+            <span data-i18n="custom.name"></span>
             <input id="char-name" type="text" maxlength="20" />
           </label>
 
           <div class="field">
-            <span>Share code · send it to someone and they get the exact same friend</span>
+            <span data-i18n="custom.share"></span>
             <div class="share-row">
               <input id="share-code" type="text" readonly spellcheck="false" />
-              <button id="share-copy" class="btn teal">Copy</button>
+              <button id="share-copy" class="btn teal" data-i18n="copy"></button>
             </div>
           </div>
 
@@ -74,31 +78,31 @@
           <div class="swatches" id="swatches"></div>
 
           <div class="row actions">
-            <button id="randomize" class="btn">🎲 Random colors</button>
+            <button id="randomize" class="btn" data-i18n="custom.random"></button>
             <span class="spacer"></span>
-            <button id="remove-char" class="btn red">Say goodbye</button>
+            <button id="remove-char" class="btn red" data-i18n="custom.remove"></button>
           </div>
         </section>
 
         <section class="panel card global">
-          <h3>For everyone</h3>
+          <h3 data-i18n="global.title"></h3>
           <div class="row">
             <label class="field grow">
-              <span>Walking speed <output id="speed-out"></output></span>
+              <span><span data-i18n="global.speed"></span> <output id="speed-out"></output></span>
               <input id="speed" type="range" min="0.3" max="3" step="0.1" />
             </label>
             <label class="field grow">
-              <span>Size <output id="size-out"></output></span>
+              <span><span data-i18n="global.size"></span> <output id="size-out"></output></span>
               <input id="size" type="range" min="0.6" max="1.8" step="0.05" />
             </label>
           </div>
           <div class="checks">
-            <label class="check"><input id="greet" type="checkbox" /><i></i>Greet each other</label>
-            <label class="check"><input id="items" type="checkbox" /><i></i>Drop props on the ground</label>
-            <label class="check"><input id="daruma" type="checkbox" /><i></i>Red Daruma visits now and then</label>
-            <label class="check"><input id="shadows" type="checkbox" /><i></i>Shadows</label>
-            <label class="check"><input id="paused" type="checkbox" /><i></i>Stay in place</label>
-            <label class="check"><input id="startup" type="checkbox" /><i></i>Launch when the computer starts</label>
+            <label class="check"><input id="greet" type="checkbox" /><i></i><span data-i18n="global.greet"></span></label>
+            <label class="check"><input id="items" type="checkbox" /><i></i><span data-i18n="global.items"></span></label>
+            <label class="check"><input id="daruma" type="checkbox" /><i></i><span data-i18n="global.daruma"></span></label>
+            <label class="check"><input id="shadows" type="checkbox" /><i></i><span data-i18n="global.shadows"></span></label>
+            <label class="check"><input id="paused" type="checkbox" /><i></i><span data-i18n="global.paused"></span></label>
+            <label class="check"><input id="startup" type="checkbox" /><i></i><span data-i18n="global.startup"></span></label>
           </div>
         </section>
       </main>
@@ -108,16 +112,16 @@
   <!-- 단축키 설정 -->
   <section id="view-hotkey" class="view hotkey" hidden>
     <div class="topbar">
-      <button class="back" data-go="home">← Menu</button>
-      <h2>Hotkey settings</h2>
+      <button class="back" data-go="home" data-i18n="back"></button>
+      <h2 data-i18n="hotkey.title"></h2>
     </div>
     <div class="card hotkey-card">
-      <p class="lead">Press this shortcut to <b>hide your friends instantly</b>, and press it again to bring them back.<br />It works even while you're using other windows.</p>
+      <p class="lead" data-i18n-html="hotkey.lead"></p>
       <div id="hotkey-keys" class="keys" aria-live="polite"></div>
       <div class="row center">
-        <button id="hotkey-change" class="btn yellow">Change</button>
-        <button id="hotkey-reset" class="btn">Default (Ctrl + Alt + H)</button>
-        <button id="hotkey-clear" class="btn">Turn off</button>
+        <button id="hotkey-change" class="btn yellow" data-i18n="hotkey.change"></button>
+        <button id="hotkey-reset" class="btn" data-i18n="hotkey.default"></button>
+        <button id="hotkey-clear" class="btn" data-i18n="hotkey.off"></button>
       </div>
       <p id="hotkey-msg" class="msg center" role="status"></p>
     </div>
@@ -127,15 +131,16 @@
   <div id="quit-modal" class="modal" hidden>
     <div class="card modal-card">
       <canvas id="quit-face" class="quit-face" aria-hidden="true"></canvas>
-      <p>Say goodbye to your friends?<br /><small>The app will quit completely.</small></p>
+      <p><span data-i18n="quit.ask"></span><br /><small data-i18n="quit.note"></small></p>
       <div class="row center">
-        <button id="quit-cancel" class="btn">Keep playing</button>
-        <button id="quit-ok" class="btn red">Quit</button>
+        <button id="quit-cancel" class="btn" data-i18n="quit.stay"></button>
+        <button id="quit-ok" class="btn red" data-i18n="quit.ok"></button>
       </div>
     </div>
   </div>
 
   <script src="../shared/palette.js"></script>
+  <script src="../shared/i18n.js"></script>
   <script src="../shared/items.js"></script>
   <script src="../shared/character.js"></script>
   <script src="../shared/daruma.js"></script>
